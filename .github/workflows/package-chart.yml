@@ -1,0 +1,42 @@
+name: Package Helm Chart
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'chart/**'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.14.0
+
+      - name: Extract Chart Version
+        id: chart_info
+        run: |
+          VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+          NAME=$(grep '^name:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "name=${NAME}" >> $GITHUB_OUTPUT
+
+      - name: Package Chart
+        run: |
+          helm package chart -d .
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.chart_info.outputs.version }}
+          files: |
+            ${{ steps.chart_info.outputs.name }}-${{ steps.chart_info.outputs.version }}.tgz
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
