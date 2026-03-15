@@ -54,7 +54,8 @@ docker run --gpus all -p 8000:8000 ghcr.io/progress44/rpi-system-chatterbox-tts:
   "text": "Hello world",
   "language": "en",
   "audio_format": "wav",
-  "reference_voice": "my_voice.wav"
+  "reference_voice": "my_voice.wav",
+  "voice_description": "Warm, confident female narrator with a calm pace"
 }
 ```
 
@@ -67,8 +68,9 @@ Compatible with OpenAI's speech API.
 {
   "model": "turbo",
   "input": "The quick brown fox jumps over the lazy dog.",
-  "voice": "alloy",
-  "response_format": "mp3"
+  "voice": "alloy.wav",
+  "voice_description": "Energetic podcast host with clear articulation",
+  "response_format": "wav"
 }
 ```
 
@@ -76,6 +78,9 @@ Compatible with OpenAI's speech API.
 `POST /v1/audio/speech/upload`
 
 Allows uploading a reference audio file directly in the request (multipart/form-data).
+You can also pass `voice_description` as a form field.
+
+`voice_description` is only applied when the selected base model exposes a compatible generate argument; otherwise the API returns `400`.
 
 ## Deployment
 

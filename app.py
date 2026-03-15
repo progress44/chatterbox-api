@@ -1,4 +1,5 @@
 import io
+import inspect
 import logging
 import os
 import tempfile
@@ -39,6 +40,12 @@ MULTILINGUAL_MODEL_NAMES = {"multilingual", "mtl", "multi"}
 TURBO_MODEL_NAMES = {"turbo", "tts_turbo"}
 VOICE_FILE_EXTENSIONS = {".wav", ".mp3", ".flac", ".ogg", ".m4a"}
 REQUEST_ID_HEADER = "X-Request-Id"
+VOICE_DESCRIPTION_KWARG_CANDIDATES = (
+    "voice_description",
+    "voice_prompt",
+    "speaker_description",
+    "speaker_prompt",
+)
 
 
 logging.basicConfig(
@@ -53,12 +60,14 @@ class TTSRequest(BaseModel):
     language: str | None = Field(default=None, description="Use ISO code for multilingual mode, for example `en`, `sv`, `fr`.")
     audio_format: Literal["wav", "flac", "ogg"] = Field(default=DEFAULT_AUDIO_FORMAT)  # type: ignore[arg-type]
     reference_voice: str | None = Field(default=None, description="Optional file name from CHATTERBOX_REF_VOICE_DIR.")
+    voice_description: str | None = Field(default=None, min_length=1, max_length=512, description="Optional textual voice style/persona description. Applied only if the selected base model supports it.")
 
 
 class OpenAISpeechRequest(BaseModel):
     model: str | None = Field(default=None, description="Maps to CHATTERBOX_MODEL if omitted.")
     input: str = Field(..., min_length=1, max_length=MAX_TEXT_LENGTH)
     voice: str | None = Field(default=None, description="Optional file name from CHATTERBOX_REF_VOICE_DIR.")
+    voice_description: str | None = Field(default=None, min_length=1, max_length=512, description="Optional textual voice style/persona description. Applied only if the selected base model supports it.")
     response_format: Literal["wav", "flac", "ogg"] = Field(default=DEFAULT_AUDIO_FORMAT)  # type: ignore[arg-type]
     language: str | None = Field(default=None)
 
@@ -66,6 +75,7 @@ class OpenAISpeechRequest(BaseModel):
 class ServiceState:
     models = {}
     model_families = {}
+    voice_description_kwargs = {}
     model_lock = Lock()
     startup_logged = False
 
@@ -218,16 +228,37 @@ def _resolve_reference_voice(reference_voice: str | None) -> str | None:
     return str(candidate)
 
 
+def _resolve_voice_description_kwarg(model) -> str | None:
+    try:
+        signature = inspect.signature(model.generate)
+    except (TypeError, ValueError):
+        return None
+
+    params = signature.parameters
+    for candidate in VOICE_DESCRIPTION_KWARG_CANDIDATES:
+        if candidate in params:
+            return candidate
+    return None
+
+
 def _load_model(model_name: str | None = None):
     _log_startup()
     normalized_model = _normalize_model_name(model_name)
 
     if normalized_model in state.models:
-        return state.models[normalized_model], state.model_families[normalized_model]
+        return (
+            state.models[normalized_model],
+            state.model_families[normalized_model],
+            state.voice_description_kwargs[normalized_model],
+        )
 
     with state.model_lock:
         if normalized_model in state.models:
-            return state.models[normalized_model], state.model_families[normalized_model]
+            return (
+                state.models[normalized_model],
+                state.model_families[normalized_model],
+                state.voice_description_kwargs[normalized_model],
+            )
 
         device = _resolve_device()
         _ensure_watermarker_runtime()
@@ -244,13 +275,17 @@ def _load_model(model_name: str | None = None):
 
         state.models[normalized_model] = model
         state.model_families[normalized_model] = family
+        voice_description_kwarg = _resolve_voice_description_kwarg(model)
+        state.voice_description_kwargs[normalized_model] = voice_description_kwarg
         _log(
             "model_loaded",
+            voice_description_supported=bool(voice_description_kwarg),
+            voice_description_kwarg=voice_description_kwarg or "none",
             model_name=normalized_model,
             model_family=family,
             resolved_device=device,
         )
-        return model, family
+        return model, family, voice_description_kwarg
 
 
 def _render_audio(
@@ -259,12 +294,13 @@ def _render_audio(
     language: str | None,
     audio_format: str,
     reference_voice_path: str | None,
+    voice_description: str | None,
     request_id: str,
     endpoint: str,
     model_name: str | None = None,
 ):
     normalized_model = _normalize_model_name(model_name)
-    model, model_family = _load_model(normalized_model)
+    model, model_family, voice_description_kwarg = _load_model(normalized_model)
     normalized_text = _ensure_text(text)
 
     kwargs = {}
@@ -275,6 +311,15 @@ def _render_audio(
         kwargs["language_id"] = (language or DEFAULT_LANGUAGE).strip().lower()
     elif language and language.strip().lower() != DEFAULT_LANGUAGE:
         raise HTTPException(status_code=400, detail=f"Language is only supported when the selected model is multilingual. Current model: {model_family}.")
+
+    normalized_voice_description = (voice_description or "").strip()
+    if normalized_voice_description:
+        if not voice_description_kwarg:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Voice description is not supported by model `{normalized_model}`.",
+            )
+        kwargs[voice_description_kwarg] = normalized_voice_description
 
     started_at = time.perf_counter()
     try:
@@ -289,6 +334,7 @@ def _render_audio(
             reference_source=_reference_source(reference_voice_path),
             request_id=request_id,
             response_format=audio_format,
+            voice_description_used=bool(normalized_voice_description),
             text_length=len(normalized_text),
         )
         raise HTTPException(status_code=500, detail=f"TTS generation failed: {exc}") from exc
@@ -318,6 +364,7 @@ def _render_audio(
         request_id=request_id,
         response_format=audio_format,
         sample_rate=model.sr,
+        voice_description_used=bool(normalized_voice_description),
         text_length=len(normalized_text),
     )
     return audio_bytes, model.sr
@@ -412,12 +459,13 @@ async def models():
 @app.post("/tts")
 async def synthesize(request: Request, payload: TTSRequest):
     request_id = _request_id(request)
-    reference_voice_path = _resolve_reference_voice(request.reference_voice)
+    reference_voice_path = _resolve_reference_voice(payload.reference_voice)
     audio_bytes, _sample_rate = _render_audio(
         text=payload.text,
         language=payload.language,
         audio_format=payload.audio_format,
         reference_voice_path=reference_voice_path,
+        voice_description=payload.voice_description,
         request_id=request_id,
         endpoint="/tts",
         model_name=MODEL_NAME,
@@ -436,6 +484,7 @@ async def openai_compatible_speech(request: Request, payload: OpenAISpeechReques
         language=payload.language,
         audio_format=payload.response_format,
         reference_voice_path=reference_voice_path,
+        voice_description=payload.voice_description,
         request_id=request_id,
         endpoint="/v1/audio/speech",
         model_name=requested_model,
@@ -449,6 +498,7 @@ async def speech_with_upload(
     input: str = Form(...),
     response_format: Literal["wav", "flac", "ogg"] = Form(DEFAULT_AUDIO_FORMAT),  # type: ignore[arg-type]
     language: str | None = Form(default=None),
+    voice_description: str | None = Form(default=None),
     reference_audio: UploadFile | None = File(default=None),
 ):
     temp_path = None
@@ -465,6 +515,7 @@ async def speech_with_upload(
             language=language,
             audio_format=response_format,
             reference_voice_path=temp_path,
+            voice_description=voice_description,
             request_id=request_id,
             endpoint="/v1/audio/speech/upload",
             model_name=MODEL_NAME,
