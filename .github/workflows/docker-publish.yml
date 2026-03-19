@@ -10,8 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  # Using the name from chart/values.yaml for consistency
-  IMAGE_NAME: ${{ github.repository_owner }}/rpi-system-chatterbox-tts
+  IMAGE_NAME: ${{ github.repository_owner }}/rpi-system-chatterbox-tts-api
 
 jobs:
   build-and-push:
@@ -19,18 +18,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-
-    strategy:
-      fail-fast: false
-      matrix:
-        flavor: [cpu, gpu]
-        include:
-          - flavor: cpu
-            pytorch_flavor: cpu
-            tag_suffix: ""
-          - flavor: gpu
-            pytorch_flavor: cu124
-            tag_suffix: "-gpu"
 
     steps:
       - name: Checkout repository
@@ -54,25 +41,18 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          flavor: |
-            latest=auto
-            suffix=${{ matrix.tag_suffix }}
           tags: |
-            type=ref,event=branch
-            type=ref,event=pr
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=long
-            type=edge,branch=master
+            type=sha,format=long,prefix=v2-
+            type=raw,value=v2-blackwell
+            type=raw,value=v2-latest
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: Dockerfile
           push: true
-          platforms: ${{ matrix.flavor == 'cpu' && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
-          build-args: |
-            PYTORCH_FLAVOR=${{ matrix.pytorch_flavor }}
+          platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha

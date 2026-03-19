@@ -1,0 +1,18 @@
+image:
+  repository: ghcr.io/progress44/rpi-system-chatterbox-tts-api
+  tag: v2-blackwell
+  pullPolicy: Always
+
+service:
+  port: 4123
+
+tts:
+  device: cuda
+  maxTotalLength: "4000"
+  maxChunkLength: "280"
+  exaggeration: "0.5"
+  cfgWeight: "0.5"
+  temperature: "0.8"
+  useMultilingualModel: "true"
+  nvidiaVisibleDevices: all
+  nvidiaDriverCapabilities: compute,utility
