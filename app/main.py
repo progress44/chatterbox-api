@@ -12,7 +12,6 @@ from app.core.voice_library import get_voice_library
 from app.core.background_tasks import start_background_processor, stop_background_processor
 from app.api.router import api_router
 from app.config import Config
-from app.core.version import get_version
 
 
 ascii_art = r"""
@@ -23,6 +22,8 @@ ascii_art = r"""
  \____|_| |_|\__,_|\__|\__\___|_|  |_.__/ \___/_/\_\
                                                     
 """
+
+API_VERSION = "2.1.0"
 
 
 # Application lifespan management
@@ -75,7 +76,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Chatterbox TTS API",
     description="REST API for Chatterbox TTS with OpenAI-compatible endpoints",
-    version=get_version(),
+    version=API_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
     lifespan=lifespan

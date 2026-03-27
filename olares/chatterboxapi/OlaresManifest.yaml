@@ -1,0 +1,89 @@
+olaresManifest.version: "0.11.0"
+olaresManifest.type: app
+metadata:
+  name: chatterboxapi
+  description: Private text-to-speech API powered by Chatterbox.
+  icon: https://avatars.githubusercontent.com/u/21249137?s=200&v=4
+  appid: chatterboxapi
+  title: Chatterbox API
+  version: "2.1.0"
+  categories:
+    - AI
+    - Utilities
+    - Developer Tools
+permission:
+  appData: true
+  appCache: true
+  userData:
+    - Home
+spec:
+  versionName: "gpu-cu128"
+  fullDescription: |
+    Chatterbox API exposes text-to-speech endpoints on Olares.
+
+    Endpoints
+    - `GET /`
+      - Returns service metadata and docs path.
+    - `GET /health`
+      - Returns runtime status and model initialization state.
+    - `GET /v1/models`
+      - Returns the model ids available in this deployment.
+    - `POST /tts`
+      - Native JSON TTS endpoint.
+    - `POST /v1/audio/speech`
+      - OpenAI-style speech endpoint.
+    - `POST /v1/audio/speech/upload`
+      - Multipart speech endpoint with optional uploaded reference audio.
+
+    Example request
+    - `curl -X POST http://chatterboxapi-svc:4123/v1/audio/speech -H "Content-Type: application/json" -d '{"model":"turbo","input":"Hello from Olares","response_format":"wav"}' --output speech.wav`
+
+    Notes
+    - This package targets `amd64` Olares nodes with NVIDIA GPU support.
+    - First request may be slow while model artifacts are downloaded.
+    - Hugging Face and torch cache paths are persisted under `userspace.appData`.
+  developer: progress44
+  website: https://github.com/resemble-ai/chatterbox
+  sourceCode: https://github.com/progress44/rpi-system
+  submitter: progress44
+  doc: https://github.com/resemble-ai/chatterbox
+  license:
+    - text: MIT
+      url: https://github.com/resemble-ai/chatterbox/blob/main/LICENSE
+  locale:
+    - en-US
+  requiredMemory: 12Gi
+  limitedMemory: 12Gi
+  requiredDisk: 5Gi
+  limitedDisk: 40Gi
+  requiredCpu: 4
+  limitedCpu: 4
+  requiredGpu: 12Gi
+  limitedGpu: 16Gi
+  supportArch:
+    - amd64
+options:
+  apiTimeout: 0
+  dependencies:
+    - name: olares
+      type: system
+      version: ">=1.12.1-0"
+envs:
+  - envName: OLARES_USER_HUGGINGFACE_TOKEN
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_TOKEN
+  - envName: OLARES_USER_HUGGINGFACE_SERVICE
+    required: false
+    applyOnChange: true
+    valueFrom:
+      envName: OLARES_USER_HUGGINGFACE_SERVICE
+entrances:
+  - name: chatterboxapi
+    port: 4123
+    host: chatterboxapi-svc
+    title: Chatterbox API
+    icon: https://avatars.githubusercontent.com/u/21249137?s=200&v=4
+    authLevel: internal
+    openMethod: window

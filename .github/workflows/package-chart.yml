@@ -1,12 +1,16 @@
-name: Package Helm Chart
+name: Package Olares Chart
 
 on:
   push:
     branches:
       - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  release:
+  release-chart:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,39 +21,27 @@ jobs:
         with:
           version: v3.14.0
 
-      - name: Extract Chart Versions
+      - name: Extract chart metadata
         id: chart_info
         run: |
-          V1_VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          V1_NAME=$(grep '^name:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          V2_VERSION=$(grep '^version:' chart-v2/Chart.yaml | awk '{print $2}' | tr -d '"')
-          V2_NAME=$(grep '^name:' chart-v2/Chart.yaml | awk '{print $2}' | tr -d '"')
-          echo "v1_version=${V1_VERSION}" >> $GITHUB_OUTPUT
-          echo "v1_name=${V1_NAME}" >> $GITHUB_OUTPUT
-          echo "v2_version=${V2_VERSION}" >> $GITHUB_OUTPUT
-          echo "v2_name=${V2_NAME}" >> $GITHUB_OUTPUT
+          CHART_DIR="olares/chatterboxapi"
+          VERSION=$(grep '^version:' "$CHART_DIR/Chart.yaml" | awk '{print $2}' | tr -d '"')
+          NAME=$(grep '^name:' "$CHART_DIR/Chart.yaml" | awk '{print $2}' | tr -d '"')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=chart-v$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Package Charts
+      - name: Package chart
         run: |
-          helm package chart -d .
-          helm package chart-v2 -d .
+          helm package olares/chatterboxapi -d .
 
-      - name: Release V1 Chart
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.chart_info.outputs.v1_version }}
+          tag_name: ${{ steps.chart_info.outputs.tag }}
+          name: ${{ steps.chart_info.outputs.name }}-${{ steps.chart_info.outputs.version }}
           files: |
-            ${{ steps.chart_info.outputs.v1_name }}-${{ steps.chart_info.outputs.v1_version }}.tgz
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Release V2 Chart
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v2-${{ steps.chart_info.outputs.v2_version }}
-          files: |
-            ${{ steps.chart_info.outputs.v2_name }}-${{ steps.chart_info.outputs.v2_version }}.tgz
+            ${{ steps.chart_info.outputs.name }}-${{ steps.chart_info.outputs.version }}.tgz
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
