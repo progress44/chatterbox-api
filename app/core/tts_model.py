@@ -4,6 +4,7 @@ TTS model initialization and management
 
 import os
 import asyncio
+import wave
 from enum import Enum
 from typing import Optional, Dict, Any
 
@@ -55,9 +56,40 @@ async def initialize_model():
         os.makedirs(Config.MODEL_CACHE_DIR, exist_ok=True)
         
         _initialization_progress = "Checking voice sample..."
-        # Check voice sample exists
+        # Resolve voice sample path with fallbacks so startup is resilient.
         if not os.path.exists(Config.VOICE_SAMPLE_PATH):
-            raise FileNotFoundError(f"Voice sample not found: {Config.VOICE_SAMPLE_PATH}")
+            fallback_voice = None
+            if os.path.isdir(Config.VOICE_LIBRARY_DIR):
+                for name in sorted(os.listdir(Config.VOICE_LIBRARY_DIR)):
+                    ext = os.path.splitext(name)[1].lower()
+                    if ext in {".wav", ".mp3", ".flac", ".m4a", ".ogg"}:
+                        candidate = os.path.join(Config.VOICE_LIBRARY_DIR, name)
+                        if os.path.isfile(candidate):
+                            fallback_voice = candidate
+                            break
+
+            if fallback_voice:
+                print(
+                    f"⚠️ Default voice sample missing at {Config.VOICE_SAMPLE_PATH}; "
+                    f"using fallback voice {fallback_voice}"
+                )
+                Config.VOICE_SAMPLE_PATH = fallback_voice
+            else:
+                # Last resort: generate a tiny silent wav prompt so model can initialize.
+                generated_voice = "/tmp/default-voice.wav"
+                sample_rate = 24000
+                duration_seconds = 1
+                frame_count = sample_rate * duration_seconds
+                with wave.open(generated_voice, "wb") as wav_file:
+                    wav_file.setnchannels(1)
+                    wav_file.setsampwidth(2)  # int16
+                    wav_file.setframerate(sample_rate)
+                    wav_file.writeframes(b"\x00\x00" * frame_count)
+                print(
+                    f"⚠️ Default voice sample missing and no voice library file found; "
+                    f"generated fallback voice at {generated_voice}"
+                )
+                Config.VOICE_SAMPLE_PATH = generated_voice
         
         _initialization_progress = "Configuring device compatibility..."
         # Patch torch.load for CPU compatibility if needed
