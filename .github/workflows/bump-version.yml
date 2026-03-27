@@ -1,0 +1,180 @@
+name: Bump Version
+
+on:
+  push:
+    branches:
+      - master
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: "Semver bump type"
+        required: true
+        default: minor
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  bump-version:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Bump version values
+        id: bump
+        env:
+          BUMP: ${{ github.event.inputs.bump || 'minor' }}
+        run: |
+          python - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          bump = os.environ["BUMP"]
+
+          chart_path = Path("olares/chatterboxapi/Chart.yaml")
+          manifest_path = Path("olares/chatterboxapi/OlaresManifest.yaml")
+          app_init_path = Path("app/__init__.py")
+          api_main_path = Path("app/main.py")
+          version_core_path = Path("app/core/version.py")
+
+          chart = chart_path.read_text()
+          manifest = manifest_path.read_text()
+          app_init = app_init_path.read_text()
+          api_main = api_main_path.read_text()
+          version_core = version_core_path.read_text()
+
+          chart_version_match = re.search(r"^version:\s*\"?([0-9]+\.[0-9]+\.[0-9]+)\"?\s*$", chart, re.M)
+          app_version_match = re.search(r"^appVersion:\s*\"?([0-9]+\.[0-9]+\.[0-9]+)\"?\s*$", chart, re.M)
+          manifest_version_match = re.search(r"^(\s*)version:\s*\"?([0-9]+\.[0-9]+\.[0-9]+)\"?\s*$", manifest, re.M)
+          package_version_match = re.search(r'^__version__\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*$', app_init, re.M)
+          api_version_match = re.search(r'^API_VERSION\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*$', api_main, re.M)
+          core_version_match = re.search(r'^__version__\s*=\s*"([0-9]+\.[0-9]+\.[0-9]+)"\s*#\s*Fallback version\s*$', version_core, re.M)
+
+          if not chart_version_match:
+              raise SystemExit("Could not find Chart.yaml version")
+          if not app_version_match:
+              raise SystemExit("Could not find Chart.yaml appVersion")
+          if not manifest_version_match:
+              raise SystemExit("Could not find OlaresManifest metadata version")
+          if not package_version_match:
+              raise SystemExit("Could not find app/__init__.py __version__")
+          if not api_version_match:
+              raise SystemExit("Could not find app/main.py API_VERSION")
+          if not core_version_match:
+              raise SystemExit("Could not find app/core/version.py fallback __version__")
+
+          old_chart_version = chart_version_match.group(1)
+          old_app_version = app_version_match.group(1)
+          old_manifest_version = manifest_version_match.group(2)
+          old_package_version = package_version_match.group(1)
+          old_api_version = api_version_match.group(1)
+          old_core_version = core_version_match.group(1)
+
+          if not (
+              old_chart_version
+              == old_app_version
+              == old_manifest_version
+              == old_package_version
+              == old_api_version
+              == old_core_version
+          ):
+              raise SystemExit(
+                  "Version mismatch: "
+                  f"chart={old_chart_version}, chart appVersion={old_app_version}, "
+                  f"manifest={old_manifest_version}, package={old_package_version}, "
+                  f"api={old_api_version}, core={old_core_version}"
+              )
+
+          major, minor, patch = map(int, old_app_version.split("."))
+          if bump == "major":
+              major += 1
+              minor = 0
+              patch = 0
+          elif bump == "minor":
+              minor += 1
+              patch = 0
+          elif bump == "patch":
+              patch += 1
+          else:
+              raise SystemExit(f"Unsupported bump type: {bump}")
+
+          new_version = f"{major}.{minor}.{patch}"
+
+          chart = re.sub(
+              r"^version:\s*\"?[0-9]+\.[0-9]+\.[0-9]+\"?\s*$",
+              f"version: {new_version}",
+              chart,
+              count=1,
+              flags=re.M,
+          )
+          chart = re.sub(
+              r"^appVersion:\s*\"?[0-9]+\.[0-9]+\.[0-9]+\"?\s*$",
+              f'appVersion: "{new_version}"',
+              chart,
+              count=1,
+              flags=re.M,
+          )
+          manifest = re.sub(
+              r"^(\s*)version:\s*\"?[0-9]+\.[0-9]+\.[0-9]+\"?\s*$",
+              rf'\1version: "{new_version}"',
+              manifest,
+              count=1,
+              flags=re.M,
+          )
+          app_init = re.sub(
+              r'^__version__\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"\s*$',
+              f'__version__ = "{new_version}"',
+              app_init,
+              count=1,
+              flags=re.M,
+          )
+          api_main = re.sub(
+              r'^API_VERSION\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"\s*$',
+              f'API_VERSION = "{new_version}"',
+              api_main,
+              count=1,
+              flags=re.M,
+          )
+          version_core = re.sub(
+              r'^__version__\s*=\s*"[0-9]+\.[0-9]+\.[0-9]+"\s*#\s*Fallback version\s*$',
+              f'__version__ = "{new_version}"  # Fallback version',
+              version_core,
+              count=1,
+              flags=re.M,
+          )
+
+          chart_path.write_text(chart)
+          manifest_path.write_text(manifest)
+          app_init_path.write_text(app_init)
+          api_main_path.write_text(api_main)
+          version_core_path.write_text(version_core)
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as f:
+              f.write(f"old_version={old_app_version}\n")
+              f.write(f"new_version={new_version}\n")
+          PY
+
+      - name: Commit and push
+        run: |
+          if git diff --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git add app/__init__.py app/main.py app/core/version.py olares/chatterboxapi/Chart.yaml olares/chatterboxapi/OlaresManifest.yaml
+          git commit -m "bump version to ${{ steps.bump.outputs.new_version }}"
+          git push

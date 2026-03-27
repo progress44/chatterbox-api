@@ -1,59 +1,103 @@
-FROM python:3.11-slim
+# Use NVIDIA CUDA runtime as base for better GPU support
+FROM nvidia/cuda:12.8.1-runtime-ubuntu22.04
 
-WORKDIR /app
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV DEBIAN_FRONTEND=noninteractive
 
-ARG PYTORCH_FLAVOR=cpu
-ARG PYTORCH_VERSION=2.9.1
-
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    HF_HOME=/data/huggingface \
-    HF_HUB_CACHE=/data/huggingface/hub \
-    TRANSFORMERS_CACHE=/data/huggingface/transformers \
-    TORCH_HOME=/data/torch \
-    NUMBA_CACHE_DIR=/data/numba \
-    NUMBA_DISABLE_JIT=1 \
-    CHATTERBOX_MODEL=turbo \
-    CHATTERBOX_DEVICE=cpu \
-    CHATTERBOX_ENABLE_DOCS=true \
-    CHATTERBOX_MAX_TEXT_LENGTH=4000 \
-    CHATTERBOX_DEFAULT_LANGUAGE=en \
-    CHATTERBOX_DEFAULT_AUDIO_FORMAT=wav \
-    CHATTERBOX_REF_VOICE_DIR=/data/reference-voices
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install Python 3.11 and system dependencies
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    && add-apt-repository ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
+    git \
+    wget \
+    curl \
+    build-essential \
     ffmpeg \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY requirements.txt .
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1
 
-RUN pip install --no-cache-dir --upgrade pip && \
-    if [ "$PYTORCH_FLAVOR" != "cpu" ]; then \
-        pip install --no-cache-dir \
-            torch==${PYTORCH_VERSION} \
-            torchaudio==${PYTORCH_VERSION} \
-        --index-url "https://download.pytorch.org/whl/${PYTORCH_FLAVOR}"; \
-    else \
-        pip install --no-cache-dir torch==${PYTORCH_VERSION} torchaudio==${PYTORCH_VERSION}; \
-    fi && \
-    pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir --no-deps conformer==0.3.2 && \
-    pip install --no-cache-dir --no-deps s3tokenizer==0.3.0 && \
-    pip install --no-cache-dir --no-deps chatterbox-tts==0.1.6
+# Install uv
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
 
-COPY app.py .
+# Set working directory
+WORKDIR /app
 
-RUN groupadd --gid 1000 appuser && \
-    useradd --uid 1000 --gid 1000 --create-home --shell /usr/sbin/nologin appuser && \
-    mkdir -p /data/huggingface/hub /data/huggingface/transformers /data/torch /data/reference-voices /data/numba && \
-    chown -R appuser:appuser /app /data
+# Create virtual environment
+RUN uv venv --python 3.11
 
-USER appuser
+# Activate the virtual environment for subsequent RUN commands
+ENV VIRTUAL_ENV=/app/.venv
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-EXPOSE 8000
+# Install PyTorch with CUDA support using uv
+# RUN uv pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu128
+RUN uv pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=45s --retries=3 \
-    CMD python -c "from urllib.request import urlopen; urlopen('http://127.0.0.1:8000/health').read()" || exit 1
+# Install base dependencies first
+RUN uv pip install setuptools fastapi uvicorn[standard] python-dotenv python-multipart requests psutil pydub sse-starlette
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
+# Install resemble-perth specifically (required for watermarker)
+# RUN uv pip install resemble-perth
+
+# Install chatterbox-tts using uv
+# RUN uv pip install chatterbox-tts==0.1.4
+
+# Install chatterbox-tts — with the breaking fix (pkuseg package exclusion) 
+RUN uv pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp
+
+# Added after the install of chatterboxx-tts to hopefully be able to use 
+RUN uv pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
+
+# Copy application code
+COPY app/ ./app/
+COPY main.py ./
+
+# Voice sample is optional and can be mounted at runtime.
+
+# Create directories for model cache and voice library (separate from source code)
+RUN mkdir -p /cache /voices /data/long_text_jobs
+
+# Set default environment variables (prefer CUDA)
+ENV PORT=4123
+ENV EXAGGERATION=0.5
+ENV CFG_WEIGHT=0.5
+ENV TEMPERATURE=0.8
+ENV VOICE_SAMPLE_PATH=/app/voice-sample.mp3
+ENV MAX_CHUNK_LENGTH=280
+ENV MAX_TOTAL_LENGTH=3000
+ENV DEVICE=cuda
+ENV MODEL_CACHE_DIR=/cache
+ENV VOICE_LIBRARY_DIR=/voices
+ENV HOST=0.0.0.0
+
+# Long text TTS settings
+ENV LONG_TEXT_DATA_DIR=/data/long_text_jobs
+ENV LONG_TEXT_MAX_LENGTH=100000
+ENV LONG_TEXT_CHUNK_SIZE=2500
+ENV LONG_TEXT_SILENCE_PADDING_MS=200
+ENV LONG_TEXT_JOB_RETENTION_DAYS=7
+ENV LONG_TEXT_MAX_CONCURRENT_JOBS=3
+
+# NVIDIA/CUDA environment variables
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+# Expose port
+EXPOSE ${PORT}
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5m --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
+
+# Run the application using the new entry point
+CMD ["python", "main.py"] 

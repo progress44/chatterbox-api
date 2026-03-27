@@ -1,12 +1,16 @@
-name: Package Helm Chart
+name: Package Olares Chart
 
 on:
   push:
     branches:
       - master
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
-  release:
+  release-chart:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -17,22 +21,25 @@ jobs:
         with:
           version: v3.14.0
 
-      - name: Extract Chart Version
+      - name: Extract chart metadata
         id: chart_info
         run: |
-          VERSION=$(grep '^version:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          NAME=$(grep '^name:' chart/Chart.yaml | awk '{print $2}' | tr -d '"')
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-          echo "name=${NAME}" >> $GITHUB_OUTPUT
+          CHART_DIR="olares/chatterboxapi"
+          VERSION=$(grep '^version:' "$CHART_DIR/Chart.yaml" | awk '{print $2}' | tr -d '"')
+          NAME=$(grep '^name:' "$CHART_DIR/Chart.yaml" | awk '{print $2}' | tr -d '"')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "tag=chart-v$VERSION" >> "$GITHUB_OUTPUT"
 
-      - name: Package Chart
+      - name: Package chart
         run: |
-          helm package chart -d .
+          helm package olares/chatterboxapi -d .
 
-      - name: Release
+      - name: Publish release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.chart_info.outputs.version }}
+          tag_name: ${{ steps.chart_info.outputs.tag }}
+          name: ${{ steps.chart_info.outputs.name }}-${{ steps.chart_info.outputs.version }}
           files: |
             ${{ steps.chart_info.outputs.name }}-${{ steps.chart_info.outputs.version }}.tgz
           generate_release_notes: true
