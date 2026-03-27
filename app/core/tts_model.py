@@ -6,6 +6,12 @@ import os
 import asyncio
 from enum import Enum
 from typing import Optional, Dict, Any
+
+# Guard against librosa/numba cache locator failures during chatterbox import.
+os.environ.setdefault("NUMBA_CACHE_DIR", "/tmp/numba")
+os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
+os.makedirs(os.environ["NUMBA_CACHE_DIR"], exist_ok=True)
+
 from chatterbox.tts import ChatterboxTTS
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 from app.core.mtl import SUPPORTED_LANGUAGES
