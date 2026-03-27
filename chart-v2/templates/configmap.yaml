@@ -24,5 +24,7 @@ data:
   HF_HUB_CACHE: /data/huggingface/hub
   TRANSFORMERS_CACHE: /data/huggingface/transformers
   TORCH_HOME: /data/torch
+  NUMBA_CACHE_DIR: /tmp/numba
+  NUMBA_DISABLE_JIT: "1"
   NVIDIA_VISIBLE_DEVICES: {{ .Values.tts.nvidiaVisibleDevices | quote }}
   NVIDIA_DRIVER_CAPABILITIES: {{ .Values.tts.nvidiaDriverCapabilities | quote }}

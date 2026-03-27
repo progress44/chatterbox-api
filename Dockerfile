@@ -58,6 +58,9 @@ RUN uv pip install git+https://github.com/travisvn/chatterbox-multilingual.git@e
 # Added after the install of chatterboxx-tts to hopefully be able to use 
 RUN uv pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 
+# Keep librosa/numba stable for Perth watermarker imports.
+RUN uv pip install numba==0.61.2 llvmlite==0.44.0
+
 # Copy application code
 COPY app/ ./app/
 COPY main.py ./
@@ -87,6 +90,8 @@ ENV LONG_TEXT_CHUNK_SIZE=2500
 ENV LONG_TEXT_SILENCE_PADDING_MS=200
 ENV LONG_TEXT_JOB_RETENTION_DAYS=7
 ENV LONG_TEXT_MAX_CONCURRENT_JOBS=3
+ENV NUMBA_CACHE_DIR=/tmp/numba
+ENV NUMBA_DISABLE_JIT=1
 
 # NVIDIA/CUDA environment variables
 ENV NVIDIA_VISIBLE_DEVICES=all
