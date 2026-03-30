@@ -59,6 +59,36 @@ def create_wav_header(sample_rate: int, channels: int, bits_per_sample: int, dat
     return header.getvalue()
 
 
+def _is_get_call_template_compat_error(exc: Exception) -> bool:
+    """Detect known multilingual dependency mismatch raised during generation."""
+    msg = str(exc)
+    return (
+        "get_call_template" in msg
+        and "object has no attribute" in msg
+    )
+
+
+async def _run_model_generate(loop: asyncio.AbstractEventLoop, model, generate_kwargs: Dict[str, Any]):
+    """Run blocking model.generate with a guarded compatibility fallback."""
+    try:
+        return await loop.run_in_executor(None, lambda: model.generate(**generate_kwargs))
+    except AttributeError as exc:
+        if (
+            is_multilingual()
+            and "language_id" in generate_kwargs
+            and _is_get_call_template_compat_error(exc)
+        ):
+            # Compatibility fallback for certain multilingual dependency versions.
+            fallback_kwargs = dict(generate_kwargs)
+            fallback_kwargs.pop("language_id", None)
+            print(
+                "⚠️ Multilingual generation hit get_call_template compatibility issue; "
+                "retrying without language_id"
+            )
+            return await loop.run_in_executor(None, lambda: model.generate(**fallback_kwargs))
+        raise
+
+
 def resolve_voice_path_and_language(voice_name: Optional[str]) -> tuple[str, str]:
     """
     Resolve a voice name or alias to a file path and language.
@@ -253,11 +283,8 @@ async def generate_speech_internal(
                 # Add language_id for multilingual models
                 if is_multilingual():
                     generate_kwargs["language_id"] = language_id
-                
-                audio_tensor = await loop.run_in_executor(
-                    None,
-                    lambda: model.generate(**generate_kwargs)
-                )
+
+                audio_tensor = await _run_model_generate(loop, model, generate_kwargs)
                 
                 # Ensure tensor is on the correct device and detached
                 if hasattr(audio_tensor, 'detach'):
@@ -484,17 +511,16 @@ async def generate_speech_streaming(
             # Use torch.no_grad() to prevent gradient accumulation
             with torch.no_grad():
                 # Run TTS generation in executor to avoid blocking
-                audio_tensor = await loop.run_in_executor(
-                    None,
-                    lambda: model.generate(
-                        text=chunk,
-                        audio_prompt_path=voice_sample_path,
-                        exaggeration=exaggeration,
-                        cfg_weight=cfg_weight,
-                        temperature=temperature,
-                        **({'language_id': language_id} if is_multilingual() else {})
-                    )
-                )
+                generate_kwargs = {
+                    "text": chunk,
+                    "audio_prompt_path": voice_sample_path,
+                    "exaggeration": exaggeration,
+                    "cfg_weight": cfg_weight,
+                    "temperature": temperature
+                }
+                if is_multilingual():
+                    generate_kwargs["language_id"] = language_id
+                audio_tensor = await _run_model_generate(loop, model, generate_kwargs)
                 
                 # Ensure tensor is on CPU for streaming
                 if hasattr(audio_tensor, 'cpu'):
@@ -687,17 +713,16 @@ async def generate_speech_sse(
             # Use torch.no_grad() to prevent gradient accumulation
             with torch.no_grad():
                 # Run TTS generation in executor to avoid blocking
-                audio_tensor = await loop.run_in_executor(
-                    None,
-                    lambda: model.generate(
-                        text=chunk,
-                        audio_prompt_path=voice_sample_path,
-                        exaggeration=exaggeration,
-                        cfg_weight=cfg_weight,
-                        temperature=temperature,
-                        **({'language_id': language_id} if is_multilingual() else {})
-                    )
-                )
+                generate_kwargs = {
+                    "text": chunk,
+                    "audio_prompt_path": voice_sample_path,
+                    "exaggeration": exaggeration,
+                    "cfg_weight": cfg_weight,
+                    "temperature": temperature
+                }
+                if is_multilingual():
+                    generate_kwargs["language_id"] = language_id
+                audio_tensor = await _run_model_generate(loop, model, generate_kwargs)
                 
                 # Ensure tensor is on CPU for processing
                 if hasattr(audio_tensor, 'cpu'):
