@@ -23,7 +23,7 @@ ascii_art = r"""
                                                     
 """
 
-API_VERSION = "2.10.0"
+API_VERSION = "2.11.0"
 # Application lifespan management
 @asynccontextmanager
 async def lifespan(app: FastAPI):
