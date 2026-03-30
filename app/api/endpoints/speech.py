@@ -6,6 +6,8 @@ import io
 import os
 import asyncio
 import tempfile
+import inspect
+from contextlib import suppress
 import torch
 import torchaudio as ta
 import base64
@@ -78,6 +80,26 @@ async def _run_model_generate(loop: asyncio.AbstractEventLoop, model, generate_k
             and "language_id" in generate_kwargs
             and _is_get_call_template_compat_error(exc)
         ):
+            language_is_required = False
+            with suppress(Exception):
+                signature = inspect.signature(model.generate)
+                language_param = signature.parameters.get("language_id")
+                language_is_required = (
+                    language_param is not None
+                    and language_param.default is inspect._empty
+                    and language_param.kind
+                    in (
+                        inspect.Parameter.POSITIONAL_ONLY,
+                        inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                        inspect.Parameter.KEYWORD_ONLY,
+                    )
+                )
+
+            if language_is_required:
+                # This model variant requires language_id, so keep the original
+                # error instead of retrying with invalid kwargs.
+                raise
+
             # Compatibility fallback for certain multilingual dependency versions.
             fallback_kwargs = dict(generate_kwargs)
             fallback_kwargs.pop("language_id", None)
