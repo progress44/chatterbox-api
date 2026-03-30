@@ -10,7 +10,10 @@ class TTSRequest(BaseModel):
     """Text-to-speech request model"""
     
     input: str = Field(..., description="The text to generate audio for", min_length=1, max_length=3000)
+    model: Optional[str] = Field(None, description="Model selector: turbo, english, multilingual")
     voice: Optional[str] = Field("alloy", description="Voice to use (ignored - uses voice sample)")
+    language: Optional[str] = Field(None, description="Requested language code for multilingual generation")
+    language_id: Optional[str] = Field(None, description="Alias for language")
     response_format: Optional[str] = Field("wav", description="Audio format (always returns WAV)")
     speed: Optional[float] = Field(1.0, description="Speed of speech (ignored)")
     stream_format: Optional[str] = Field("audio", description="Streaming format: 'audio' for raw audio stream, 'sse' for Server-Side Events")
@@ -31,6 +34,23 @@ class TTSRequest(BaseModel):
         if not v or not v.strip():
             raise ValueError('Input text cannot be empty')
         return v.strip()
+
+    @validator('model')
+    def validate_model(cls, v):
+        if v is None:
+            return None
+        value = v.strip().lower()
+        allowed_models = {"turbo", "english", "multilingual"}
+        if value not in allowed_models:
+            raise ValueError(f"model must be one of: {', '.join(sorted(allowed_models))}")
+        return value
+
+    @validator('language', 'language_id')
+    def normalize_language_fields(cls, v):
+        if v is None:
+            return None
+        value = v.strip().lower()
+        return value or None
     
     @validator('stream_format')
     def validate_stream_format(cls, v):

@@ -40,11 +40,21 @@ RUN uv venv --python 3.11
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
+ARG CHATTERBOX_MULTILINGUAL_SHA=REPLACE_WITH_PINNED_SHA
+COPY requirements.multilingual.lock.txt ./
+
 # Install all Python dependencies in a single layer with uv cache mount.
 # The cache mount persists the uv download cache across builds so unchanged
 # packages are not re-downloaded even when this layer is invalidated.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv pip install \
+    if [ "$CHATTERBOX_MULTILINGUAL_SHA" = "REPLACE_WITH_PINNED_SHA" ]; then \
+      echo "CHATTERBOX_MULTILINGUAL_SHA must be set to a pinned commit SHA"; \
+      exit 1; \
+    fi \
+    && echo "$CHATTERBOX_MULTILINGUAL_SHA" | grep -Eq '^[0-9a-f]{40}$' \
+    && sed "s/__CHATTERBOX_MULTILINGUAL_SHA__/${CHATTERBOX_MULTILINGUAL_SHA}/g" \
+        requirements.multilingual.lock.txt > /tmp/requirements.multilingual.lock.resolved.txt \
+    && uv pip install \
         setuptools \
         fastapi \
         "uvicorn[standard]" \
@@ -54,7 +64,7 @@ RUN --mount=type=cache,target=/root/.cache/uv \
         psutil \
         pydub \
         sse-starlette \
-    && uv pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp \
+    && uv pip install -r /tmp/requirements.multilingual.lock.resolved.txt \
     && uv pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128 \
     && uv pip install numba==0.61.2 llvmlite==0.44.0
 

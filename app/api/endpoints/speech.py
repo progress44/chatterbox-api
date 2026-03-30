@@ -24,7 +24,12 @@ from app.core import (
     split_text_into_chunks, concatenate_audio_chunks, add_route_aliases,
     TTSStatus, start_tts_request, update_tts_status, get_voice_library
 )
-from app.core.tts_model import get_model, is_multilingual
+from app.core.tts_model import (
+    get_model,
+    is_multilingual,
+    is_multilingual_runtime_ready,
+    get_multilingual_runtime_error,
+)
 from app.core.text_processing import split_text_for_streaming, get_streaming_settings
 
 # Create router with aliasing support
@@ -36,6 +41,7 @@ REQUEST_COUNTER = 0
 
 # Supported audio formats for voice uploads
 SUPPORTED_AUDIO_FORMATS = {'.mp3', '.wav', '.flac', '.m4a', '.ogg'}
+ALLOWED_MODEL_IDS = {"turbo", "english", "multilingual"}
 
 
 def create_wav_header(sample_rate: int, channels: int, bits_per_sample: int, data_size: int = 0xFFFFFFFF) -> bytes:
@@ -109,6 +115,66 @@ async def _run_model_generate(loop: asyncio.AbstractEventLoop, model, generate_k
             )
             return await loop.run_in_executor(None, lambda: model.generate(**fallback_kwargs))
         raise
+
+
+def _validation_error(message: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail={"error": {"message": message, "type": "validation_error"}},
+    )
+
+
+def _normalize_language_inputs(language: Optional[str], language_id: Optional[str]) -> Optional[str]:
+    normalized_language = language.strip().lower() if language and language.strip() else None
+    normalized_language_id = language_id.strip().lower() if language_id and language_id.strip() else None
+    if normalized_language and normalized_language_id and normalized_language != normalized_language_id:
+        raise _validation_error("language and language_id must match when both are provided")
+    return normalized_language_id or normalized_language
+
+
+def _default_request_model() -> str:
+    return "multilingual" if is_multilingual() else "turbo"
+
+
+def _resolve_request_model_and_language(
+    model: Optional[str],
+    language: Optional[str],
+    language_id: Optional[str],
+) -> tuple[str, str]:
+    requested_model = (model or _default_request_model()).strip().lower()
+    if requested_model not in ALLOWED_MODEL_IDS:
+        raise _validation_error(
+            f"model must be one of: {', '.join(sorted(ALLOWED_MODEL_IDS))}"
+        )
+
+    requested_language = _normalize_language_inputs(language, language_id)
+
+    if requested_model == "multilingual":
+        if not is_multilingual():
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error": {
+                        "message": "Requested multilingual model is unavailable in current deployment",
+                        "type": "model_unavailable",
+                    }
+                },
+            )
+        if not is_multilingual_runtime_ready():
+            runtime_error = get_multilingual_runtime_error() or "unknown runtime validation error"
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error": {
+                        "message": f"Multilingual runtime unavailable: {runtime_error}",
+                        "type": "model_unavailable",
+                    }
+                },
+            )
+        return requested_model, requested_language or "en"
+
+    # For english/turbo requests, keep generation language deterministic.
+    return requested_model, "en"
 
 
 def resolve_voice_path_and_language(voice_name: Optional[str]) -> tuple[str, str]:
@@ -841,8 +907,13 @@ async def generate_speech_sse(
 async def text_to_speech(request: TTSRequest):
     """Generate speech from text using Chatterbox TTS with voice selection support"""
     
-    # Resolve voice name to file path and language
-    voice_sample_path, language_id = resolve_voice_path_and_language(request.voice)
+    # Resolve voice name to file path.
+    voice_sample_path, _ = resolve_voice_path_and_language(request.voice)
+    _, language_id = _resolve_request_model_and_language(
+        request.model,
+        request.language,
+        request.language_id,
+    )
     
     # Check if SSE streaming is requested
     if request.stream_format == "sse":
@@ -900,7 +971,10 @@ async def text_to_speech(request: TTSRequest):
 )
 async def text_to_speech_with_upload(
     input: str = Form(..., description="The text to generate audio for", min_length=1, max_length=3000),
+    model: Optional[str] = Form(None, description="Model selector: turbo, english, multilingual"),
     voice: Optional[str] = Form("alloy", description="Voice name from library or OpenAI voice name (defaults to configured sample)"),
+    language: Optional[str] = Form(None, description="Language code for multilingual generation"),
+    language_id: Optional[str] = Form(None, description="Alias for language"),
     response_format: Optional[str] = Form("wav", description="Audio format (always returns WAV)"),
     speed: Optional[float] = Form(1.0, description="Speed of speech (ignored)"),
     stream_format: Optional[str] = Form("audio", description="Streaming format: 'audio' for raw audio stream, 'sse' for Server-Side Events"),
@@ -944,14 +1018,16 @@ async def text_to_speech_with_upload(
                 detail={"error": {"message": "streaming_quality must be one of: fast, balanced, high", "type": "validation_error"}}
             )
     
+    # Resolve model/language behavior for this request.
+    _, language_id = _resolve_request_model_and_language(model, language, language_id)
+
     # Handle voice selection and file upload
     temp_voice_path = None
     voice_sample_path = Config.VOICE_SAMPLE_PATH  # Default
-    language_id = "en"  # Default language
     
     # First, try to resolve voice name from library if no file uploaded
     if not voice_file:
-        voice_sample_path, language_id = resolve_voice_path_and_language(voice)
+        voice_sample_path, _ = resolve_voice_path_and_language(voice)
     
     # If a file is uploaded, it takes priority over voice name
     if voice_file:
@@ -1072,8 +1148,13 @@ async def text_to_speech_with_upload(
 async def stream_text_to_speech(request: TTSRequest):
     """Stream speech generation from text using Chatterbox TTS with voice selection support"""
     
-    # Resolve voice name to file path and language
-    voice_sample_path, language_id = resolve_voice_path_and_language(request.voice)
+    # Resolve voice name to file path.
+    voice_sample_path, _ = resolve_voice_path_and_language(request.voice)
+    _, language_id = _resolve_request_model_and_language(
+        request.model,
+        request.language,
+        request.language_id,
+    )
     
     # Create streaming response
     return StreamingResponse(
@@ -1111,7 +1192,10 @@ async def stream_text_to_speech(request: TTSRequest):
 )
 async def stream_text_to_speech_with_upload(
     input: str = Form(..., description="The text to generate audio for", min_length=1, max_length=3000),
+    model: Optional[str] = Form(None, description="Model selector: turbo, english, multilingual"),
     voice: Optional[str] = Form("alloy", description="Voice name from library or OpenAI voice name (defaults to configured sample)"),
+    language: Optional[str] = Form(None, description="Language code for multilingual generation"),
+    language_id: Optional[str] = Form(None, description="Alias for language"),
     response_format: Optional[str] = Form("wav", description="Audio format (always returns WAV)"),
     speed: Optional[float] = Form(1.0, description="Speed of speech (ignored)"),
     exaggeration: Optional[float] = Form(None, description="Emotion intensity (0.25-2.0)", ge=0.25, le=2.0),
@@ -1146,14 +1230,16 @@ async def stream_text_to_speech_with_upload(
             detail={"error": {"message": "streaming_quality must be one of: fast, balanced, high", "type": "validation_error"}}
         )
     
+    # Resolve model/language behavior for this request.
+    _, language_id = _resolve_request_model_and_language(model, language, language_id)
+
     # Handle voice selection and file upload
     temp_voice_path = None
     voice_sample_path = Config.VOICE_SAMPLE_PATH  # Default
-    language_id = "en"  # Default language
     
     # First, try to resolve voice name from library if no file uploaded
     if not voice_file:
-        voice_sample_path, language_id = resolve_voice_path_and_language(voice)
+        voice_sample_path, _ = resolve_voice_path_and_language(voice)
     
     # If a file is uploaded, it takes priority over voice name
     if voice_file:

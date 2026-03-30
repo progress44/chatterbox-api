@@ -68,6 +68,8 @@ _initialization_error = None
 _initialization_progress = ""
 _is_multilingual = None
 _supported_languages = {}
+_multilingual_runtime_ready = True
+_multilingual_runtime_error = None
 
 
 class InitializationState(Enum):
@@ -79,7 +81,7 @@ class InitializationState(Enum):
 
 async def initialize_model():
     """Initialize the Chatterbox TTS model"""
-    global _model, _device, _initialization_state, _initialization_error, _initialization_progress, _is_multilingual, _supported_languages
+    global _model, _device, _initialization_state, _initialization_error, _initialization_progress, _is_multilingual, _supported_languages, _multilingual_runtime_ready, _multilingual_runtime_error
     
     try:
         _initialization_state = InitializationState.INITIALIZING.value
@@ -174,6 +176,32 @@ async def initialize_model():
             )
             _is_multilingual = True
             _supported_languages = SUPPORTED_LANGUAGES.copy()
+            _initialization_progress = "Running multilingual runtime self-check..."
+            try:
+                generated = await loop.run_in_executor(
+                    None,
+                    lambda: _model.generate(
+                        text="Startup multilingual health check.",
+                        audio_prompt_path=Config.VOICE_SAMPLE_PATH,
+                        language_id="en",
+                        exaggeration=Config.EXAGGERATION,
+                        cfg_weight=Config.CFG_WEIGHT,
+                        temperature=Config.TEMPERATURE,
+                    ),
+                )
+                if hasattr(generated, "detach"):
+                    generated = generated.detach()
+                if hasattr(generated, "cpu"):
+                    generated = generated.cpu()
+                del generated
+                _multilingual_runtime_ready = True
+                _multilingual_runtime_error = None
+            except Exception as runtime_exc:
+                _multilingual_runtime_ready = False
+                _multilingual_runtime_error = str(runtime_exc)
+                raise RuntimeError(
+                    f"Multilingual runtime self-check failed: {runtime_exc}"
+                ) from runtime_exc
             print(f"✓ Multilingual model initialized with {len(_supported_languages)} languages")
         else:
             print(f"Loading standard Chatterbox TTS model...")
@@ -183,6 +211,8 @@ async def initialize_model():
             )
             _is_multilingual = False
             _supported_languages = {"en": "English"}  # Standard model only supports English
+            _multilingual_runtime_ready = True
+            _multilingual_runtime_error = None
             print(f"✓ Standard model initialized (English only)")
         
         _initialization_state = InitializationState.READY.value
@@ -258,5 +288,17 @@ def get_model_info() -> Dict[str, Any]:
         "language_count": len(_supported_languages),
         "device": _device,
         "is_ready": is_ready(),
-        "initialization_state": _initialization_state
+        "initialization_state": _initialization_state,
+        "multilingual_runtime_ready": _multilingual_runtime_ready,
+        "multilingual_runtime_error": _multilingual_runtime_error,
     }
+
+
+def is_multilingual_runtime_ready() -> bool:
+    """Check if multilingual runtime passed startup self-check."""
+    return _multilingual_runtime_ready
+
+
+def get_multilingual_runtime_error() -> Optional[str]:
+    """Get multilingual runtime self-check error."""
+    return _multilingual_runtime_error
