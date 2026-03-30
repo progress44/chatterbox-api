@@ -13,6 +13,48 @@ os.environ.setdefault("NUMBA_CACHE_DIR", "/tmp/numba")
 os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
 os.makedirs(os.environ["NUMBA_CACHE_DIR"], exist_ok=True)
 
+def _patch_perth_watermarker() -> None:
+    """
+    Work around Perth returning `PerthImplicitWatermarker = None`.
+
+    This is an upstream compatibility issue that causes Chatterbox model
+    initialization to fail when it unconditionally calls
+    `perth.PerthImplicitWatermarker()`.
+    """
+    try:
+        import perth
+    except ImportError:
+        return
+
+    perth_watermarker = getattr(perth, "PerthImplicitWatermarker", None)
+    if callable(perth_watermarker):
+        return
+
+    dummy_watermarker = getattr(perth, "DummyWatermarker", None)
+    if callable(dummy_watermarker):
+        perth.PerthImplicitWatermarker = dummy_watermarker
+        print(
+            "⚠️ PerthImplicitWatermarker is unavailable; "
+            "falling back to DummyWatermarker"
+        )
+        return
+
+    class _PassThroughWatermarker:
+        def apply_watermark(self, audio, *args, **kwargs):
+            return audio
+
+        def get_watermark(self, *args, **kwargs):
+            return None
+
+    perth.PerthImplicitWatermarker = _PassThroughWatermarker
+    print(
+        "⚠️ Perth watermarking is unavailable; "
+        "using pass-through watermarker fallback"
+    )
+
+
+_patch_perth_watermarker()
+
 from chatterbox.tts import ChatterboxTTS
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 from app.core.mtl import SUPPORTED_LANGUAGES
