@@ -930,7 +930,7 @@ async def text_to_speech_with_upload(
             if temp_voice_path and os.path.exists(temp_voice_path):
                 try:
                     os.unlink(temp_voice_path)
-                except:
+                except Exception:
                     pass
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -1132,7 +1132,7 @@ async def stream_text_to_speech_with_upload(
             if temp_voice_path and os.path.exists(temp_voice_path):
                 try:
                     os.unlink(temp_voice_path)
-                except:
+                except Exception:
                     pass
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

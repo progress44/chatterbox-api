@@ -50,10 +50,10 @@ def _patch_perth_watermarker() -> None:
 
 _patch_perth_watermarker()
 
-from chatterbox.tts import ChatterboxTTS
-from chatterbox.mtl_tts import ChatterboxMultilingualTTS
-from app.core.mtl import SUPPORTED_LANGUAGES
-from app.config import Config, detect_device
+from chatterbox.tts import ChatterboxTTS  # noqa: E402
+from chatterbox.mtl_tts import ChatterboxMultilingualTTS  # noqa: E402
+from app.core.mtl import SUPPORTED_LANGUAGES  # noqa: E402
+from app.config import Config, detect_device  # noqa: E402
 
 # Global model instance
 _model = None
