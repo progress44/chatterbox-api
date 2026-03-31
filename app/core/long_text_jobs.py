@@ -5,12 +5,11 @@ Long text TTS job management system
 import asyncio
 import hashlib
 import json
-import os
 import shutil
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 import logging
 
 from app.config import Config
@@ -23,7 +22,6 @@ from app.models.long_text import (
     LongTextJobResponse,
     LongTextJobListItem,
     LongTextJobList,
-    LongTextSSEEvent
 )
 
 logger = logging.getLogger(__name__)

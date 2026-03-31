@@ -2,7 +2,6 @@
 Version management utilities for Chatterbox TTS API
 """
 
-import os
 import sys
 from pathlib import Path
 from typing import Dict, Any, Optional

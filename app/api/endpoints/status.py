@@ -2,7 +2,7 @@
 TTS processing status endpoints
 """
 
-from typing import Optional, Dict, Any, List
+from typing import Dict, Any
 from fastapi import APIRouter, Query
 
 from app.models import TTSStatusResponse, TTSStatisticsResponse, APIInfoResponse

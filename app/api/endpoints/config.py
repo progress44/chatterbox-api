@@ -7,7 +7,7 @@ from fastapi import APIRouter
 from app.models import ConfigResponse
 from app.config import Config
 from app.core.tts_model import get_device
-from app.core import add_route_aliases, get_endpoint_info, get_version, get_version_info
+from app.core import add_route_aliases, get_endpoint_info, get_version_info
 
 # Create router with aliasing support
 base_router = APIRouter()

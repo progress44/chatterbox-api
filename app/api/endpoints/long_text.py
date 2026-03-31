@@ -5,9 +5,9 @@ Long text TTS endpoints for processing texts > 3000 characters
 import asyncio
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import Optional
 from fastapi import APIRouter, HTTPException, status, Query
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import FileResponse
 from sse_starlette.sse import EventSourceResponse
 
 from app.models.long_text import (
@@ -1037,7 +1037,7 @@ async def bulk_job_action(bulk_request: BulkJobAction):
                     failed_count += 1
                     failed_jobs.append(job_id)
 
-            except Exception as e:
+            except Exception:
                 failed_count += 1
                 failed_jobs.append(job_id)
 

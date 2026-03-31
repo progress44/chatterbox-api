@@ -3,7 +3,6 @@ Endpoint alias management utilities
 """
 
 from typing import Dict, List, Any, Callable
-from functools import wraps
 
 
 # Centralized endpoint aliases configuration

@@ -3,7 +3,6 @@ Voice library management endpoints
 """
 
 import os
-from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status, File, UploadFile, Form
 from fastapi.responses import FileResponse, JSONResponse
 

@@ -6,7 +6,6 @@ from datetime import datetime
 from enum import Enum
 from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field, field_validator
-from uuid import UUID
 
 
 class LongTextJobStatus(str, Enum):

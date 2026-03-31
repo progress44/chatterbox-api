@@ -5,7 +5,51 @@ TTS model initialization and management
 import os
 import asyncio
 from enum import Enum
-from typing import Optional, Dict, Any
+from typing import Dict, Any
+
+
+def _patch_perth_watermarker() -> None:
+    """
+    Work around Perth returning `PerthImplicitWatermarker = None`.
+
+    This is an upstream compatibility issue that causes Chatterbox model
+    initialization to fail when it unconditionally calls
+    `perth.PerthImplicitWatermarker()`.
+    """
+    try:
+        import perth
+    except ImportError:
+        return
+
+    perth_watermarker = getattr(perth, "PerthImplicitWatermarker", None)
+    if callable(perth_watermarker):
+        return
+
+    dummy_watermarker = getattr(perth, "DummyWatermarker", None)
+    if callable(dummy_watermarker):
+        perth.PerthImplicitWatermarker = dummy_watermarker
+        print(
+            "⚠️ PerthImplicitWatermarker is unavailable; "
+            "falling back to DummyWatermarker"
+        )
+        return
+
+    class _PassThroughWatermarker:
+        def apply_watermark(self, audio, *args, **kwargs):
+            return audio
+
+        def get_watermark(self, *args, **kwargs):
+            return None
+
+    perth.PerthImplicitWatermarker = _PassThroughWatermarker
+    print(
+        "⚠️ Perth watermarking is unavailable; "
+        "using pass-through watermarker fallback"
+    )
+
+
+_patch_perth_watermarker()
+
 from chatterbox.tts import ChatterboxTTS
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 from app.core.mtl import SUPPORTED_LANGUAGES
@@ -39,7 +83,7 @@ async def initialize_model():
         Config.validate()
         _device = detect_device()
         
-        print(f"Initializing Chatterbox TTS model...")
+        print("Initializing Chatterbox TTS model...")
         print(f"Device: {_device}")
         print(f"Voice sample: {Config.VOICE_SAMPLE_PATH}")
         print(f"Model cache: {Config.MODEL_CACHE_DIR}")
@@ -87,7 +131,7 @@ async def initialize_model():
         loop = asyncio.get_event_loop()
         
         if use_multilingual:
-            print(f"Loading Chatterbox Multilingual TTS model...")
+            print("Loading Chatterbox Multilingual TTS model...")
             _model = await loop.run_in_executor(
                 None, 
                 lambda: ChatterboxMultilingualTTS.from_pretrained(device=_device)
@@ -96,14 +140,14 @@ async def initialize_model():
             _supported_languages = SUPPORTED_LANGUAGES.copy()
             print(f"✓ Multilingual model initialized with {len(_supported_languages)} languages")
         else:
-            print(f"Loading standard Chatterbox TTS model...")
+            print("Loading standard Chatterbox TTS model...")
             _model = await loop.run_in_executor(
                 None, 
                 lambda: ChatterboxTTS.from_pretrained(device=_device)
             )
             _is_multilingual = False
             _supported_languages = {"en": "English"}  # Standard model only supports English
-            print(f"✓ Standard model initialized (English only)")
+            print("✓ Standard model initialized (English only)")
         
         _initialization_state = InitializationState.READY.value
         _initialization_progress = "Model ready"

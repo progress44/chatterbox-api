@@ -8,13 +8,11 @@ from app.models import HealthResponse
 from app.config import Config
 from app.core import get_memory_info, add_route_aliases
 from app.core.tts_model import (
-    get_model, 
-    get_device, 
+    get_model,
+    get_device,
     get_initialization_state,
     get_initialization_progress,
     get_initialization_error,
-    is_ready,
-    is_initializing
 )
 
 # Create router with aliasing support

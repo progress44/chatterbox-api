@@ -3,27 +3,21 @@ Audio processing utilities for long text TTS concatenation
 """
 
 import logging
-import os
-import tempfile
 from pathlib import Path
 from typing import List, Optional, Union
 
 try:
     from pydub import AudioSegment
-    from pydub.silence import split_on_silence
-    from pydub.utils import make_chunks
     PYDUB_AVAILABLE = True
 except ImportError as e:
     PYDUB_AVAILABLE = False
     AudioSegment = None
     # Log the import error for debugging
-    import logging
     logging.getLogger(__name__).warning(f"pydub import failed: {e}")
 except Exception as e:
     PYDUB_AVAILABLE = False
     AudioSegment = None
     # Log any other errors for debugging
-    import logging
     logging.getLogger(__name__).error(f"Unexpected error importing pydub: {e}")
 
 from app.config import Config
@@ -46,7 +40,7 @@ def check_pydub_availability():
     # Test basic functionality
     try:
         # Create a small test audio segment
-        test_audio = AudioSegment.silent(duration=100)  # 100ms of silence
+        AudioSegment.silent(duration=100)  # 100ms of silence
         return True
     except Exception as e:
         raise AudioConcatenationError(f"pydub is not properly configured: {e}")
@@ -203,9 +197,6 @@ def _normalize_audio_levels(segments: List[AudioSegment]) -> List[AudioSegment]:
 
     try:
         # Calculate average dBFS across all segments
-        total_dbfs = sum(segment.dBFS for segment in segments if segment.dBFS is not None)
-        avg_dbfs = total_dbfs / len(segments)
-
         # Target level (slightly below 0 dBFS to prevent clipping)
         target_dbfs = -3.0
 

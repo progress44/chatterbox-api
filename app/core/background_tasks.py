@@ -4,21 +4,17 @@ Background task processing for long text TTS jobs
 
 import asyncio
 import logging
-import os
 import traceback
 from datetime import datetime
-from pathlib import Path
-from typing import Optional, Dict, Any
+from typing import Optional, Dict
 
 from app.config import Config
 from app.core.long_text_jobs import get_job_manager
-from app.core.text_processing import split_text_for_long_generation, estimate_processing_time
+from app.core.text_processing import split_text_for_long_generation
 from app.core.audio_processing import concatenate_audio_files, AudioConcatenationError
 from app.api.endpoints.speech import generate_speech_internal, resolve_voice_path_and_language
 from app.models.long_text import (
     LongTextJobStatus,
-    LongTextJobMetadata,
-    LongTextChunk
 )
 
 logger = logging.getLogger(__name__)

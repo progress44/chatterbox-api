@@ -29,13 +29,11 @@ def split_text_into_chunks(text: str, max_length: int = None) -> list:
     
     while temp_text:
         best_split = len(temp_text)
-        best_ending = ""
-        
+
         for ending in sentence_endings:
             pos = temp_text.find(ending)
             if pos != -1 and pos < best_split:
                 best_split = pos + len(ending)
-                best_ending = ending
         
         if best_split == len(temp_text):
             # No sentence ending found, take the rest

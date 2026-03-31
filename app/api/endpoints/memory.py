@@ -4,7 +4,7 @@ Memory management endpoints
 
 import torch
 from typing import Optional, Dict, Any
-from fastapi import APIRouter, Query, HTTPException, status
+from fastapi import APIRouter, Query
 
 from app.core import get_memory_info, cleanup_memory, add_route_aliases
 from app.config import Config
@@ -76,8 +76,6 @@ async def memory_management(
     include_alerts: bool = Query(True, description="Include memory alerts")
 ):
     """Memory management endpoint for monitoring and cleanup"""
-    global REQUEST_COUNTER
-    
     memory_info = get_memory_info()
     
     result = {
@@ -195,8 +193,6 @@ async def update_memory_config(
     gpu_memory_mb: Optional[float] = Query(None, description="GPU memory alert threshold (MB)", ge=1024, le=32768)
 ):
     """Update memory alert thresholds"""
-    global MEMORY_ALERT_THRESHOLDS
-    
     old_thresholds = MEMORY_ALERT_THRESHOLDS.copy()
     
     if cpu_memory_percent is not None:
