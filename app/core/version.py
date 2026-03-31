@@ -16,7 +16,7 @@ except ImportError:
     except ImportError:
         tomllib = None
 
-__version__ = "2.12.0"  # Fallback version
+__version__ = "2.13.0"  # Fallback version
 __all__ = ["get_version", "get_version_info", "__version__"]
 
 
