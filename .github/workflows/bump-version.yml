@@ -1,9 +1,11 @@
 name: Bump Version
 
 on:
-  push:
-    branches:
-      - master
+  workflow_call:
+    inputs:
+      bump:
+        type: string
+        default: minor
   workflow_dispatch:
     inputs:
       bump:
@@ -15,9 +17,6 @@ on:
           - patch
           - minor
           - major
-
-permissions:
-  contents: write
 
 jobs:
   bump-version:

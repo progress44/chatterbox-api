@@ -1,4 +1,4 @@
-name: Build Docker Image
+name: Build API Docker Image Flavours
 
 on:
   workflow_call:
@@ -10,7 +10,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/chatterbox-api
+  IMAGE_BASE: ${{ github.repository_owner }}/chatterbox-api
 
 jobs:
   docker:
@@ -18,6 +18,21 @@ jobs:
     permissions:
       contents: read
       packages: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - dockerfile: docker/Dockerfile
+            suffix: default
+          - dockerfile: docker/Dockerfile.cpu
+            suffix: cpu
+          - dockerfile: docker/Dockerfile.gpu
+            suffix: gpu
+          - dockerfile: docker/Dockerfile.uv
+            suffix: uv
+          - dockerfile: docker/Dockerfile.uv.gpu
+            suffix: uv-gpu
 
     steps:
       - name: Checkout
@@ -41,7 +56,7 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BASE }}-${{ matrix.suffix }}
           tags: |
             type=ref,event=branch
             type=ref,event=tag
@@ -52,7 +67,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: docker/Dockerfile.blackwell
+          file: ${{ matrix.dockerfile }}
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
