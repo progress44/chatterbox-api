@@ -3,8 +3,16 @@ image:
   tag: v2-blackwell
   pullPolicy: Always
 
+frontend:
+  image:
+    repository: ghcr.io/progress44/chatterbox-frontend
+    tag: latest
+    pullPolicy: Always
+  port: 80
+
 service:
-  port: 4123
+  port: 80
+  backendPort: 4123
 
 tts:
   device: cuda

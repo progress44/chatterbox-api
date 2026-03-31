@@ -109,7 +109,7 @@ envs:
       envName: OLARES_USER_HUGGINGFACE_SERVICE
 entrances:
   - name: chatterboxtts-v2
-    port: 4123
+    port: 80
     host: chatterboxtts-v2-svc
     title: Chatterbox TTS V2
     icon: https://avatars.githubusercontent.com/u/21249137?s=200&v=4

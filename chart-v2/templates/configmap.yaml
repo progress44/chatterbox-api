@@ -5,7 +5,7 @@ metadata:
   name: {{ .Release.Name }}-config
   namespace: {{ .Release.Namespace }}
 data:
-  PORT: {{ .Values.service.port | quote }}
+  PORT: {{ .Values.service.backendPort | quote }}
   HOST: "0.0.0.0"
   DEVICE: {{ .Values.tts.device | quote }}
   MAX_TOTAL_LENGTH: {{ .Values.tts.maxTotalLength | quote }}
