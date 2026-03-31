@@ -4,14 +4,12 @@ __pycache__/
 *$py.class
 *.so
 .Python
-env/
 build/
 develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
-lib/
 lib64/
 parts/
 sdist/
@@ -20,17 +18,49 @@ wheels/
 *.egg-info/
 .installed.cfg
 *.egg
+MANIFEST
 
-# Virtual Environment
+# Virtual environments
+.env
+.venv
+env/
 venv/
-.venv/
 ENV/
+env.bak/
+venv.bak/
 
-# IDEs
-.idea/
+# uv
+uv.lock
+
+# Flask
+instance/
+.webassets-cache
+
+# PyTorch
+*.pth
+*.pt
+
+# Models and cache
+.cache/
+.torch/
+
+# Audio files (except sample)
+*.wav
+*.mp3
+!voice-sample.mp3
+
+# Logs
+*.log
+logs/
+
+# IDE
 .vscode/
+.idea/
 *.swp
 *.swo
+*~
+.cursorignore
+.internal/
 
 # OS
 .DS_Store
@@ -41,14 +71,37 @@ ENV/
 ehthumbs.db
 Thumbs.db
 
-# Environment variables
-.env
-.env.local
-
-# Logs
-*.log
-
-# Coverage/Tests
+# Testing
 .pytest_cache/
 .coverage
 htmlcov/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Docker
+# .dockerignore
+
+# Environment variables (keep template)
+.env
+!env.example
+
+# Temporary files
+tmp/
+temp/
+*.tmp 
+
+node_modules/
+
+voices/
+
+coverage.xml
+test_*
+
+!tests/test_*
+
+reference/
+CLAUDE.md
+.claude/
+
+data/

@@ -1,7 +1,6 @@
 # Chatterbox TTS Core Package with multilingual support
 # chatterbox-tts==0.1.4
-# Keep this pinned to a commit SHA when installing locally.
-chatterbox-tts @ git+https://github.com/travisvn/chatterbox-multilingual.git@REPLACE_WITH_PINNED_SHA
+chatterbox-tts @ git+https://github.com/travisvn/chatterbox-multilingual.git@exp
 
 # Required for Chatterbox TTS watermarker functionality
 resemble-perth

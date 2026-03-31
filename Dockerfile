@@ -40,18 +40,14 @@ RUN uv venv --python 3.11
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-ARG CHATTERBOX_MULTILINGUAL_SHA=REPLACE_WITH_PINNED_SHA
+ARG CHATTERBOX_MULTILINGUAL_SHA=c33cc0286ad166f14dd143c02c2a1c3309ab4727
 COPY requirements.multilingual.lock.txt ./
 
 # Install all Python dependencies in a single layer with uv cache mount.
 # The cache mount persists the uv download cache across builds so unchanged
 # packages are not re-downloaded even when this layer is invalidated.
 RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$CHATTERBOX_MULTILINGUAL_SHA" = "REPLACE_WITH_PINNED_SHA" ]; then \
-      echo "CHATTERBOX_MULTILINGUAL_SHA must be set to a pinned commit SHA"; \
-      exit 1; \
-    fi \
-    && echo "$CHATTERBOX_MULTILINGUAL_SHA" | grep -Eq '^[0-9a-f]{40}$' \
+    echo "$CHATTERBOX_MULTILINGUAL_SHA" | grep -Eq '^[0-9a-f]{40}$' \
     && sed "s/__CHATTERBOX_MULTILINGUAL_SHA__/${CHATTERBOX_MULTILINGUAL_SHA}/g" \
         requirements.multilingual.lock.txt > /tmp/requirements.multilingual.lock.resolved.txt \
     && uv pip install \
