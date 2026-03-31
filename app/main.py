@@ -16,7 +16,6 @@ from app.core.background_tasks import (
 from app.api.router import api_router
 from app.config import Config
 
-
 ascii_art = r"""
   ____ _           _   _            _               
  / ___| |__   __ _| |_| |_ ___ _ __| |__   _____  __
@@ -26,7 +25,7 @@ ascii_art = r"""
                                                     
 """
 
-API_VERSION = "2.19.0"
+API_VERSION = "2.20.0"
 
 
 # Application lifespan management
