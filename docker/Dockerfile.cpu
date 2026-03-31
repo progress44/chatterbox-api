@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Use Python 3.11 slim image as base
 FROM python:3.11-slim
 
@@ -22,18 +23,22 @@ WORKDIR /app
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install PyTorch CPU version first (to avoid CUDA dependencies)
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Install all Python dependencies in a single layer with pip cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install \
+        fastapi \
+        "uvicorn[standard]" \
+        python-dotenv \
+        python-multipart \
+        requests \
+        psutil \
+        pydub \
+        sse-starlette \
+    && pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp \
+    && pip install torch torchaudio --extra-index-url https://download.pytorch.org/whl/cpu
 
-# Copy requirements (excluding torch/torchaudio since we installed them above)
-COPY requirements.txt ./
-RUN pip install --no-cache-dir fastapi uvicorn[standard] python-dotenv python-multipart requests psutil pydub sse-starlette
-
-# Install chatterbox-tts — with the breaking fix (pkuseg package exclusion) 
-RUN pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp
-
-# Copy application code
+# Copy application code (changes here don't invalidate dependency layer)
 COPY app/ ./app/
 COPY main.py ./
 
@@ -72,4 +77,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5m --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Run the application with the new entry point
-CMD ["python", "main.py"] 
+CMD ["python", "main.py"]

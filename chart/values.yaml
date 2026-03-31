@@ -1,5 +1,5 @@
 image:
-  repository: ghcr.io/progress44/rpi-system-chatterbox-tts
+  repository: ghcr.io/progress44/chatterbox-tts
   tag: latest
   pullPolicy: Always
 

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Use Python 3.11 slim image as base
 FROM python:3.11-slim
 
@@ -15,8 +16,8 @@ RUN apt-get update && apt-get install -y \
     libsndfile1 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install uv
-COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/uv
+# Install uv (pinned for reproducibility)
+COPY --from=ghcr.io/astral-sh/uv:0.7 /uv /bin/uv
 
 # Set working directory
 WORKDIR /app
@@ -28,28 +29,23 @@ RUN uv venv --python 3.11
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install PyTorch with CPU support using uv
-RUN uv pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cpu
+# Install all Python dependencies in a single layer with uv cache mount
+RUN --mount=type=cache,target=/root/.cache/uv \
+    uv pip install \
+        setuptools \
+        resemble-perth \
+        fastapi \
+        "uvicorn[standard]" \
+        python-dotenv \
+        python-multipart \
+        requests \
+        psutil \
+        pydub \
+        sse-starlette \
+    && uv pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp \
+    && uv pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --extra-index-url https://download.pytorch.org/whl/cpu
 
-# Install base dependencies first
-RUN uv pip install fastapi uvicorn[standard] python-dotenv python-multipart requests psutil pydub sse-starlette
-
-# Install resemble-perth specifically (required for watermarker)
-RUN uv pip install resemble-perth
-
-# Verify resemble-perth installation
-RUN . .venv/bin/activate && python -c "import perth; print('✓ resemble-perth installed successfully')"
-
-# Install chatterbox-tts after ensuring perth is available
-# RUN uv pip install chatterbox-tts==1.0.4
-
-# Install chatterbox-tts — with the breaking fix (pkuseg package exclusion) 
-RUN uv pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp
-
-# Verify full installation
-RUN . .venv/bin/activate && python -c "import chatterbox; import perth; print('✓ All dependencies installed successfully')"
-
-# Copy application code
+# Copy application code (changes here don't invalidate dependency layer)
 COPY app/ ./app/
 COPY main.py ./
 
@@ -88,4 +84,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5m --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Run the application using the new entry point
-CMD ["python", "main.py"] 
+CMD ["python", "main.py"]

@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Use Python 3.11 slim image as base
 FROM python:3.11-slim
 
@@ -22,22 +23,26 @@ WORKDIR /app
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 
-# Install PyTorch with CUDA support (for chatterbox-tts compatibility)
-RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+# Install all Python dependencies in a single layer with pip cache mount
+RUN --mount=type=cache,target=/root/.cache/pip \
+    pip install --upgrade pip \
+    && pip install \
+        fastapi \
+        "uvicorn[standard]" \
+        python-dotenv \
+        python-multipart \
+        requests \
+        psutil \
+        pydub \
+        sse-starlette \
+    && pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp \
+    && pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --extra-index-url https://download.pytorch.org/whl/cu124
 
-# Copy requirements and install other dependencies
-COPY requirements.txt ./
-RUN pip install --no-cache-dir fastapi uvicorn[standard] python-dotenv python-multipart requests psutil pydub sse-starlette
-
-# Install chatterbox-tts — with the breaking fix (pkuseg package exclusion) 
-RUN pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp
-
-# Copy application code
+# Copy application code (changes here don't invalidate dependency layer)
 COPY app/ ./app/
 COPY main.py ./
 
-# Copy voice sample if it exists (optional, can be mounted)
+# Voice sample is optional and can be mounted at runtime.
 COPY voice-sample.mp3 ./voice-sample.mp3
 
 # Create directories for model cache and voice library (separate from source code)
@@ -72,4 +77,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5m --retries=3 \
     CMD curl -f http://localhost:${PORT}/health || exit 1
 
 # Run the application with the new entry point
-CMD ["python", "main.py"] 
+CMD ["python", "main.py"]
