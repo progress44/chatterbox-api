@@ -26,10 +26,6 @@ class ModelInfo(BaseModel):
     object: str
     created: int
     owned_by: str
-    ready: Optional[bool] = None
-    device: Optional[str] = None
-    model_type: Optional[str] = None
-    language_count: Optional[int] = None
 
 
 class ModelsResponse(BaseModel):

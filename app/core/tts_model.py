@@ -4,57 +4,8 @@ TTS model initialization and management
 
 import os
 import asyncio
-import wave
 from enum import Enum
 from typing import Optional, Dict, Any
-
-# Guard against librosa/numba cache locator failures during chatterbox import.
-os.environ.setdefault("NUMBA_CACHE_DIR", "/tmp/numba")
-os.environ.setdefault("NUMBA_DISABLE_JIT", "1")
-os.makedirs(os.environ["NUMBA_CACHE_DIR"], exist_ok=True)
-
-def _patch_perth_watermarker() -> None:
-    """
-    Work around Perth returning `PerthImplicitWatermarker = None`.
-
-    This is an upstream compatibility issue that causes Chatterbox model
-    initialization to fail when it unconditionally calls
-    `perth.PerthImplicitWatermarker()`.
-    """
-    try:
-        import perth
-    except ImportError:
-        return
-
-    perth_watermarker = getattr(perth, "PerthImplicitWatermarker", None)
-    if callable(perth_watermarker):
-        return
-
-    dummy_watermarker = getattr(perth, "DummyWatermarker", None)
-    if callable(dummy_watermarker):
-        perth.PerthImplicitWatermarker = dummy_watermarker
-        print(
-            "⚠️ PerthImplicitWatermarker is unavailable; "
-            "falling back to DummyWatermarker"
-        )
-        return
-
-    class _PassThroughWatermarker:
-        def apply_watermark(self, audio, *args, **kwargs):
-            return audio
-
-        def get_watermark(self, *args, **kwargs):
-            return None
-
-    perth.PerthImplicitWatermarker = _PassThroughWatermarker
-    print(
-        "⚠️ Perth watermarking is unavailable; "
-        "using pass-through watermarker fallback"
-    )
-
-
-_patch_perth_watermarker()
-
 from chatterbox.tts import ChatterboxTTS
 from chatterbox.mtl_tts import ChatterboxMultilingualTTS
 from app.core.mtl import SUPPORTED_LANGUAGES
@@ -68,8 +19,6 @@ _initialization_error = None
 _initialization_progress = ""
 _is_multilingual = None
 _supported_languages = {}
-_multilingual_runtime_ready = True
-_multilingual_runtime_error = None
 
 
 class InitializationState(Enum):
@@ -81,7 +30,7 @@ class InitializationState(Enum):
 
 async def initialize_model():
     """Initialize the Chatterbox TTS model"""
-    global _model, _device, _initialization_state, _initialization_error, _initialization_progress, _is_multilingual, _supported_languages, _multilingual_runtime_ready, _multilingual_runtime_error
+    global _model, _device, _initialization_state, _initialization_error, _initialization_progress, _is_multilingual, _supported_languages
     
     try:
         _initialization_state = InitializationState.INITIALIZING.value
@@ -100,40 +49,9 @@ async def initialize_model():
         os.makedirs(Config.MODEL_CACHE_DIR, exist_ok=True)
         
         _initialization_progress = "Checking voice sample..."
-        # Resolve voice sample path with fallbacks so startup is resilient.
+        # Check voice sample exists
         if not os.path.exists(Config.VOICE_SAMPLE_PATH):
-            fallback_voice = None
-            if os.path.isdir(Config.VOICE_LIBRARY_DIR):
-                for name in sorted(os.listdir(Config.VOICE_LIBRARY_DIR)):
-                    ext = os.path.splitext(name)[1].lower()
-                    if ext in {".wav", ".mp3", ".flac", ".m4a", ".ogg"}:
-                        candidate = os.path.join(Config.VOICE_LIBRARY_DIR, name)
-                        if os.path.isfile(candidate):
-                            fallback_voice = candidate
-                            break
-
-            if fallback_voice:
-                print(
-                    f"⚠️ Default voice sample missing at {Config.VOICE_SAMPLE_PATH}; "
-                    f"using fallback voice {fallback_voice}"
-                )
-                Config.VOICE_SAMPLE_PATH = fallback_voice
-            else:
-                # Last resort: generate a tiny silent wav prompt so model can initialize.
-                generated_voice = "/tmp/default-voice.wav"
-                sample_rate = 24000
-                duration_seconds = 1
-                frame_count = sample_rate * duration_seconds
-                with wave.open(generated_voice, "wb") as wav_file:
-                    wav_file.setnchannels(1)
-                    wav_file.setsampwidth(2)  # int16
-                    wav_file.setframerate(sample_rate)
-                    wav_file.writeframes(b"\x00\x00" * frame_count)
-                print(
-                    f"⚠️ Default voice sample missing and no voice library file found; "
-                    f"generated fallback voice at {generated_voice}"
-                )
-                Config.VOICE_SAMPLE_PATH = generated_voice
+            raise FileNotFoundError(f"Voice sample not found: {Config.VOICE_SAMPLE_PATH}")
         
         _initialization_progress = "Configuring device compatibility..."
         # Patch torch.load for CPU compatibility if needed
@@ -176,32 +94,6 @@ async def initialize_model():
             )
             _is_multilingual = True
             _supported_languages = SUPPORTED_LANGUAGES.copy()
-            _initialization_progress = "Running multilingual runtime self-check..."
-            try:
-                generated = await loop.run_in_executor(
-                    None,
-                    lambda: _model.generate(
-                        text="Startup multilingual health check.",
-                        audio_prompt_path=Config.VOICE_SAMPLE_PATH,
-                        language_id="en",
-                        exaggeration=Config.EXAGGERATION,
-                        cfg_weight=Config.CFG_WEIGHT,
-                        temperature=Config.TEMPERATURE,
-                    ),
-                )
-                if hasattr(generated, "detach"):
-                    generated = generated.detach()
-                if hasattr(generated, "cpu"):
-                    generated = generated.cpu()
-                del generated
-                _multilingual_runtime_ready = True
-                _multilingual_runtime_error = None
-            except Exception as runtime_exc:
-                _multilingual_runtime_ready = False
-                _multilingual_runtime_error = str(runtime_exc)
-                raise RuntimeError(
-                    f"Multilingual runtime self-check failed: {runtime_exc}"
-                ) from runtime_exc
             print(f"✓ Multilingual model initialized with {len(_supported_languages)} languages")
         else:
             print(f"Loading standard Chatterbox TTS model...")
@@ -211,8 +103,6 @@ async def initialize_model():
             )
             _is_multilingual = False
             _supported_languages = {"en": "English"}  # Standard model only supports English
-            _multilingual_runtime_ready = True
-            _multilingual_runtime_error = None
             print(f"✓ Standard model initialized (English only)")
         
         _initialization_state = InitializationState.READY.value
@@ -288,17 +178,5 @@ def get_model_info() -> Dict[str, Any]:
         "language_count": len(_supported_languages),
         "device": _device,
         "is_ready": is_ready(),
-        "initialization_state": _initialization_state,
-        "multilingual_runtime_ready": _multilingual_runtime_ready,
-        "multilingual_runtime_error": _multilingual_runtime_error,
+        "initialization_state": _initialization_state
     }
-
-
-def is_multilingual_runtime_ready() -> bool:
-    """Check if multilingual runtime passed startup self-check."""
-    return _multilingual_runtime_ready
-
-
-def get_multilingual_runtime_error() -> Optional[str]:
-    """Get multilingual runtime self-check error."""
-    return _multilingual_runtime_error
