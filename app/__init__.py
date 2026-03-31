@@ -4,4 +4,4 @@ Chatterbox TTS API
 A FastAPI-powered REST API for Chatterbox TTS with OpenAI-compatible endpoints.
 """
 
-__version__ = "2.18.0"
+__version__ = "2.19.0"
