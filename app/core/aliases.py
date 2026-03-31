@@ -11,7 +11,10 @@ ENDPOINT_ALIASES: Dict[str, List[str]] = {
     "/audio/speech": ["/v1/audio/speech", "/tts"],
     "/audio/speech/upload": ["/v1/audio/speech/upload", "/tts/upload"],
     "/audio/speech/stream": ["/v1/audio/speech/stream", "/tts/stream"],
-    "/audio/speech/stream/upload": ["/v1/audio/speech/stream/upload", "/tts/stream/upload"],
+    "/audio/speech/stream/upload": [
+        "/v1/audio/speech/stream/upload",
+        "/tts/stream/upload",
+    ],
     "/voices": ["/v1/voices", "/voice-library", "/voice_library"],
     "/voices/default": ["/v1/voices/default", "/default-voice"],
     "/voices/{voice_name}": ["/v1/voices/{voice_name}"],
@@ -53,98 +56,104 @@ ENDPOINT_ALIASES: Dict[str, List[str]] = {
 def alias_route(primary_path: str, alias_paths: List[str] = None, **kwargs):
     """
     Decorator to create endpoint aliases.
-    
+
     Args:
         primary_path: The main endpoint path (included in schema)
         alias_paths: List of alias paths (excluded from schema). If None, uses ENDPOINT_ALIASES lookup.
         **kwargs: Additional FastAPI route parameters
-    
+
     Example:
         @alias_route("/audio/speech")
         async def text_to_speech():
             pass
-            
+
         # Creates /audio/speech (primary) and /v1/audio/speech (alias)
     """
+
     def decorator(router_method: Callable):
         def route_decorator(*args, **route_kwargs):
             # Merge kwargs with route_kwargs, giving precedence to route_kwargs
             final_kwargs = {**kwargs, **route_kwargs}
-            
+
             def endpoint_decorator(func):
                 # Add the primary endpoint
                 router_method(primary_path, **final_kwargs)(func)
-                
+
                 # Determine alias paths
                 target_aliases = alias_paths or ENDPOINT_ALIASES.get(primary_path, [])
-                
+
                 # Add each alias endpoint
                 for alias_path in target_aliases:
                     # Create alias kwargs (exclude from schema)
                     alias_kwargs = final_kwargs.copy()
-                    alias_kwargs['include_in_schema'] = False
-                    
+                    alias_kwargs["include_in_schema"] = False
+
                     # Add the alias endpoint
                     router_method(alias_path, **alias_kwargs)(func)
-                
+
                 return func
+
             return endpoint_decorator
+
         return route_decorator
+
     return decorator
 
 
 def add_route_aliases(router):
     """
     Add aliased versions of router methods.
-    
+
     Returns a router with aliased post, get, put, delete, patch methods.
     """
+
     class AliasedRouter:
         def __init__(self, original_router):
             self._router = original_router
-            
+
         def __getattr__(self, name):
             # Pass through all other router attributes
             return getattr(self._router, name)
-        
+
         def _create_aliased_method(self, method_name: str, path: str, **kwargs):
             """Create a method that adds both primary and alias endpoints"""
             original_method = getattr(self._router, method_name)
-            
+
             def decorator(func):
                 # Add the primary endpoint
                 original_method(path, **kwargs)(func)
-                
+
                 # Get alias paths for this primary path
                 alias_paths = ENDPOINT_ALIASES.get(path, [])
-                
+
                 # Add each alias endpoint
                 for alias_path in alias_paths:
                     # Create alias kwargs (exclude from schema)
                     alias_kwargs = kwargs.copy()
-                    alias_kwargs['include_in_schema'] = False
-                    
+                    alias_kwargs["include_in_schema"] = False
+
                     # Add the alias endpoint
                     original_method(alias_path, **alias_kwargs)(func)
-                
+
                 return func
+
             return decorator
-        
+
         def post(self, path: str, **kwargs):
-            return self._create_aliased_method('post', path, **kwargs)
-            
+            return self._create_aliased_method("post", path, **kwargs)
+
         def get(self, path: str, **kwargs):
-            return self._create_aliased_method('get', path, **kwargs)
-            
+            return self._create_aliased_method("get", path, **kwargs)
+
         def put(self, path: str, **kwargs):
-            return self._create_aliased_method('put', path, **kwargs)
-            
+            return self._create_aliased_method("put", path, **kwargs)
+
         def delete(self, path: str, **kwargs):
-            return self._create_aliased_method('delete', path, **kwargs)
-            
+            return self._create_aliased_method("delete", path, **kwargs)
+
         def patch(self, path: str, **kwargs):
-            return self._create_aliased_method('patch', path, **kwargs)
-    
+            return self._create_aliased_method("patch", path, **kwargs)
+
     return AliasedRouter(router)
 
 
@@ -174,7 +183,10 @@ def remove_alias(primary_path: str, alias_path: str = None) -> None:
     """Remove a specific alias or all aliases for an endpoint"""
     if alias_path:
         # Remove specific alias
-        if primary_path in ENDPOINT_ALIASES and alias_path in ENDPOINT_ALIASES[primary_path]:
+        if (
+            primary_path in ENDPOINT_ALIASES
+            and alias_path in ENDPOINT_ALIASES[primary_path]
+        ):
             ENDPOINT_ALIASES[primary_path].remove(alias_path)
     else:
         # Remove all aliases for this endpoint
@@ -186,14 +198,14 @@ def get_endpoint_info() -> Dict[str, Any]:
     info = {
         "total_endpoints": len(ENDPOINT_ALIASES),
         "total_aliases": sum(len(aliases) for aliases in ENDPOINT_ALIASES.values()),
-        "mappings": {}
+        "mappings": {},
     }
-    
+
     for primary, aliases in ENDPOINT_ALIASES.items():
         info["mappings"][primary] = {
             "primary": primary,
             "aliases": aliases,
-            "total_paths": 1 + len(aliases)
+            "total_paths": 1 + len(aliases),
         }
-    
-    return info 
+
+    return info

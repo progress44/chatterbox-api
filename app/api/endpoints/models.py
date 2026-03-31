@@ -16,7 +16,7 @@ router = add_route_aliases(base_router)
     "/models",
     response_model=ModelsResponse,
     summary="List models",
-    description="List available models (OpenAI API compatibility)"
+    description="List available models (OpenAI API compatibility)",
 )
 async def list_models():
     """List available models (OpenAI API compatibility)"""
@@ -25,12 +25,13 @@ async def list_models():
         data=[
             ModelInfo(
                 id="chatterbox-tts-1",
-                object="model", 
+                object="model",
                 created=1677649963,
-                owned_by="resemble-ai"
+                owned_by="resemble-ai",
             )
-        ]
+        ],
     )
 
+
 # Export the base router for the main app to use
-__all__ = ["base_router"] 
+__all__ = ["base_router"]

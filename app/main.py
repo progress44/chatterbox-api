@@ -9,7 +9,10 @@ from fastapi.responses import JSONResponse
 
 from app.core.tts_model import initialize_model
 from app.core.voice_library import get_voice_library
-from app.core.background_tasks import start_background_processor, stop_background_processor
+from app.core.background_tasks import (
+    start_background_processor,
+    stop_background_processor,
+)
 from app.api.router import api_router
 from app.config import Config
 
@@ -24,18 +27,21 @@ ascii_art = r"""
 """
 
 API_VERSION = "2.15.0"
+
+
 # Application lifespan management
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Startup
     print(ascii_art)
-    
+
     # Start model initialization in the background
     # This allows the server to respond to health checks immediately
     # while the model loads asynchronously
     import asyncio
+
     model_init_task = asyncio.create_task(initialize_model())
-    
+
     # Initialize voice library to restore default voice settings
     print("Initializing voice library...")
     voice_lib = get_voice_library()
@@ -52,9 +58,9 @@ async def lifespan(app: FastAPI):
 
     # Note: We don't await the model initialization here
     # The server will start immediately and health checks will show initialization status
-    
+
     yield
-    
+
     # Shutdown (cleanup if needed)
     # Stop background processor
     print("Stopping long text background processor...")
@@ -77,7 +83,7 @@ app = FastAPI(
     version=API_VERSION,
     docs_url="/docs",
     redoc_url="/redoc",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Configure CORS
@@ -103,10 +109,7 @@ app.include_router(api_router)
 # Error handlers
 @app.exception_handler(HTTPException)
 async def http_exception_handler(request, exc):
-    return JSONResponse(
-        status_code=exc.status_code,
-        content=exc.detail
-    )
+    return JSONResponse(status_code=exc.status_code, content=exc.detail)
 
 
 @app.exception_handler(Exception)
@@ -116,7 +119,7 @@ async def general_exception_handler(request, exc):
         content={
             "error": {
                 "message": f"Internal server error: {str(exc)}",
-                "type": "internal_error"
+                "type": "internal_error",
             }
-        }
-    ) 
+        },
+    )

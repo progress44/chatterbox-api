@@ -12,7 +12,10 @@ from app.config import Config
 from app.core.long_text_jobs import get_job_manager
 from app.core.text_processing import split_text_for_long_generation
 from app.core.audio_processing import concatenate_audio_files, AudioConcatenationError
-from app.api.endpoints.speech import generate_speech_internal, resolve_voice_path_and_language
+from app.api.endpoints.speech import (
+    generate_speech_internal,
+    resolve_voice_path_and_language,
+)
 from app.models.long_text import (
     LongTextJobStatus,
 )
@@ -82,8 +85,7 @@ class LongTextProcessor:
                 # Wait for a job (with timeout to allow graceful shutdown)
                 try:
                     job_id = await asyncio.wait_for(
-                        self.job_manager.job_queue.get(),
-                        timeout=1.0
+                        self.job_manager.job_queue.get(), timeout=1.0
                     )
                 except asyncio.TimeoutError:
                     continue
@@ -138,11 +140,12 @@ class LongTextProcessor:
                 return
 
             # Phase 1: Text chunking
-            await self._update_job_status(job_id, LongTextJobStatus.CHUNKING, "Splitting text into chunks")
+            await self._update_job_status(
+                job_id, LongTextJobStatus.CHUNKING, "Splitting text into chunks"
+            )
 
             chunks = split_text_for_long_generation(
-                input_text,
-                max_chunk_size=Config.LONG_TEXT_CHUNK_SIZE
+                input_text, max_chunk_size=Config.LONG_TEXT_CHUNK_SIZE
             )
 
             if not chunks:
@@ -157,7 +160,11 @@ class LongTextProcessor:
             logger.info(f"Job {job_id}: Split into {len(chunks)} chunks")
 
             # Phase 2: Generate audio for each chunk
-            await self._update_job_status(job_id, LongTextJobStatus.PROCESSING, f"Generating audio for {len(chunks)} chunks")
+            await self._update_job_status(
+                job_id,
+                LongTextJobStatus.PROCESSING,
+                f"Generating audio for {len(chunks)} chunks",
+            )
 
             voice_path, language_id = resolve_voice_path_and_language(metadata.voice)
 
@@ -165,8 +172,13 @@ class LongTextProcessor:
             for i, chunk in enumerate(chunks):
                 # Check if job was paused or cancelled
                 current_metadata = self.job_manager._load_job_metadata(job_id)
-                if current_metadata and current_metadata.status in [LongTextJobStatus.PAUSED, LongTextJobStatus.CANCELLED]:
-                    logger.info(f"Job {job_id} was paused/cancelled, stopping processing")
+                if current_metadata and current_metadata.status in [
+                    LongTextJobStatus.PAUSED,
+                    LongTextJobStatus.CANCELLED,
+                ]:
+                    logger.info(
+                        f"Job {job_id} was paused/cancelled, stopping processing"
+                    )
                     return
 
                 # Update current chunk
@@ -177,7 +189,9 @@ class LongTextProcessor:
                 chunk.processing_started_at = datetime.utcnow()
                 chunks[i] = chunk  # Update in list
 
-                logger.info(f"Job {job_id}: Processing chunk {i+1}/{len(chunks)} ({len(chunk.text)} chars)")
+                logger.info(
+                    f"Job {job_id}: Processing chunk {i + 1}/{len(chunks)} ({len(chunk.text)} chars)"
+                )
 
                 try:
                     # Generate audio for this chunk
@@ -185,22 +199,30 @@ class LongTextProcessor:
                         text=chunk.text,
                         voice_sample_path=voice_path,
                         language_id=language_id,
-                        exaggeration=metadata.parameters.get('exaggeration'),
-                        cfg_weight=metadata.parameters.get('cfg_weight'),
-                        temperature=metadata.parameters.get('temperature')
+                        exaggeration=metadata.parameters.get("exaggeration"),
+                        cfg_weight=metadata.parameters.get("cfg_weight"),
+                        temperature=metadata.parameters.get("temperature"),
                     )
 
                     # Save chunk audio file
-                    chunk_filename = f"chunk_{i+1:03d}.wav"
-                    chunk_audio_path = self.job_manager._get_job_file_paths(job_id)['chunks_dir'] / chunk_filename
+                    chunk_filename = f"chunk_{i + 1:03d}.wav"
+                    chunk_audio_path = (
+                        self.job_manager._get_job_file_paths(job_id)["chunks_dir"]
+                        / chunk_filename
+                    )
 
-                    with open(chunk_audio_path, 'wb') as f:
+                    with open(chunk_audio_path, "wb") as f:
                         f.write(audio_buffer.getvalue())
 
                     # Update chunk metadata
                     chunk.audio_file = chunk_filename
                     chunk.processing_completed_at = datetime.utcnow()
-                    chunk.duration_ms = int((chunk.processing_completed_at - chunk.processing_started_at).total_seconds() * 1000)
+                    chunk.duration_ms = int(
+                        (
+                            chunk.processing_completed_at - chunk.processing_started_at
+                        ).total_seconds()
+                        * 1000
+                    )
 
                     chunk_audio_files.append(chunk_audio_path)
                     chunks[i] = chunk
@@ -210,10 +232,10 @@ class LongTextProcessor:
                     self.job_manager._save_job_metadata(current_metadata)
                     self.job_manager._save_chunks_data(job_id, chunks)
 
-                    logger.info(f"Job {job_id}: Completed chunk {i+1}/{len(chunks)}")
+                    logger.info(f"Job {job_id}: Completed chunk {i + 1}/{len(chunks)}")
 
                 except Exception as e:
-                    logger.error(f"Job {job_id}: Failed to process chunk {i+1}: {e}")
+                    logger.error(f"Job {job_id}: Failed to process chunk {i + 1}: {e}")
                     chunk.error = str(e)
                     chunks[i] = chunk
 
@@ -231,14 +253,21 @@ class LongTextProcessor:
                 await self._fail_job(job_id, "No chunks were successfully generated")
                 return
             elif len(successful_chunks) < len(chunks):
-                logger.warning(f"Job {job_id}: Only {len(successful_chunks)}/{len(chunks)} chunks generated successfully")
+                logger.warning(
+                    f"Job {job_id}: Only {len(successful_chunks)}/{len(chunks)} chunks generated successfully"
+                )
 
             # Phase 3: Concatenate audio chunks
-            await self._update_job_status(job_id, LongTextJobStatus.PROCESSING, "Combining audio chunks")
+            await self._update_job_status(
+                job_id, LongTextJobStatus.PROCESSING, "Combining audio chunks"
+            )
 
             try:
                 output_filename = f"final.{metadata.output_format}"
-                output_path = self.job_manager._get_job_file_paths(job_id)['output_dir'] / output_filename
+                output_path = (
+                    self.job_manager._get_job_file_paths(job_id)["output_dir"]
+                    / output_filename
+                )
 
                 concatenation_metadata = concatenate_audio_files(
                     audio_files=successful_chunks,
@@ -247,31 +276,37 @@ class LongTextProcessor:
                     silence_duration_ms=Config.LONG_TEXT_SILENCE_PADDING_MS,
                     # normalize_volume=True,
                     normalize_volume=False,
-                    remove_source_files=False  # Keep source chunks for debugging
+                    remove_source_files=False,  # Keep source chunks for debugging
                 )
 
                 # Mark job as completed with history persistence
                 self.job_manager.complete_job(
                     job_id=job_id,
                     output_path=f"output/{output_filename}",
-                    output_size_bytes=concatenation_metadata['file_size_bytes'],
-                    output_duration_seconds=concatenation_metadata['duration_seconds']
+                    output_size_bytes=concatenation_metadata["file_size_bytes"],
+                    output_duration_seconds=concatenation_metadata["duration_seconds"],
                 )
 
-                logger.info(f"Job {job_id} completed successfully: {concatenation_metadata['duration_seconds']:.1f}s audio, "
-                          f"{concatenation_metadata['file_size_bytes']:,} bytes")
+                logger.info(
+                    f"Job {job_id} completed successfully: {concatenation_metadata['duration_seconds']:.1f}s audio, "
+                    f"{concatenation_metadata['file_size_bytes']:,} bytes"
+                )
 
             except AudioConcatenationError as e:
                 await self._fail_job(job_id, f"Audio concatenation failed: {e}")
                 return
             except Exception as e:
-                await self._fail_job(job_id, f"Unexpected error during concatenation: {e}")
+                await self._fail_job(
+                    job_id, f"Unexpected error during concatenation: {e}"
+                )
                 return
 
         except asyncio.CancelledError:
             # Job was cancelled
             logger.info(f"Job {job_id} processing was cancelled")
-            await self._update_job_status(job_id, LongTextJobStatus.CANCELLED, "Processing was cancelled")
+            await self._update_job_status(
+                job_id, LongTextJobStatus.CANCELLED, "Processing was cancelled"
+            )
             raise
 
         except Exception as e:
@@ -279,7 +314,9 @@ class LongTextProcessor:
             logger.error(traceback.format_exc())
             await self._fail_job(job_id, f"Unexpected error: {e}")
 
-    async def _update_job_status(self, job_id: str, status: LongTextJobStatus, message: str = ""):
+    async def _update_job_status(
+        self, job_id: str, status: LongTextJobStatus, message: str = ""
+    ):
         """Update job status"""
         try:
             metadata = self.job_manager._load_job_metadata(job_id)
@@ -303,7 +340,11 @@ class LongTextProcessor:
                 metadata.processing_completed_at = datetime.utcnow()
                 if metadata.processing_started_at:
                     metadata.total_processing_time_ms = int(
-                        (metadata.processing_completed_at - metadata.processing_started_at).total_seconds() * 1000
+                        (
+                            metadata.processing_completed_at
+                            - metadata.processing_started_at
+                        ).total_seconds()
+                        * 1000
                     )
                 self.job_manager._save_job_metadata(metadata)
         except Exception as e:

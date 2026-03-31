@@ -18,13 +18,13 @@ router = add_route_aliases(base_router)
     "/config",
     response_model=ConfigResponse,
     summary="Get configuration",
-    description="Get current API configuration"
+    description="Get current API configuration",
 )
 async def get_config():
     """Get current configuration"""
     device = get_device()
     version_info = get_version_info()
-    
+
     return ConfigResponse(
         api_info={
             "name": version_info.get("name", "Chatterbox TTS API"),
@@ -34,41 +34,38 @@ async def get_config():
             "license": version_info.get("license", "Unknown"),
             "author": version_info.get("author", "Unknown"),
             "python_version": version_info["python_version"],
-            "platform": version_info["platform"]
+            "platform": version_info["platform"],
         },
-        server={
-            "host": Config.HOST,
-            "port": Config.PORT
-        },
+        server={"host": Config.HOST, "port": Config.PORT},
         model={
             "device": device or "unknown",
             "voice_sample_path": Config.VOICE_SAMPLE_PATH,
-            "model_cache_dir": Config.MODEL_CACHE_DIR
+            "model_cache_dir": Config.MODEL_CACHE_DIR,
         },
         defaults={
             "exaggeration": Config.EXAGGERATION,
             "cfg_weight": Config.CFG_WEIGHT,
             "temperature": Config.TEMPERATURE,
             "max_chunk_length": Config.MAX_CHUNK_LENGTH,
-            "max_total_length": Config.MAX_TOTAL_LENGTH
+            "max_total_length": Config.MAX_TOTAL_LENGTH,
         },
         memory_management={
             "memory_cleanup_interval": Config.MEMORY_CLEANUP_INTERVAL,
             "cuda_cache_clear_interval": Config.CUDA_CACHE_CLEAR_INTERVAL,
-            "enable_memory_monitoring": Config.ENABLE_MEMORY_MONITORING
-        }
+            "enable_memory_monitoring": Config.ENABLE_MEMORY_MONITORING,
+        },
     )
 
 
 @router.get(
     "/endpoints",
     summary="List all endpoints",
-    description="Get information about all available endpoints and their aliases"
+    description="Get information about all available endpoints and their aliases",
 )
 async def list_endpoints():
     """List all available endpoints and their aliases"""
     endpoint_info = get_endpoint_info()
-    
+
     # Add some helpful information
     result = {
         **endpoint_info,
@@ -79,12 +76,13 @@ async def list_endpoints():
             "example": {
                 "primary": "/audio/speech",
                 "aliases": ["/v1/audio/speech"],
-                "note": "Both paths work identically"
-            }
-        }
+                "note": "Both paths work identically",
+            },
+        },
     }
-    
+
     return result
 
+
 # Export the base router for the main app to use
-__all__ = ["base_router"] 
+__all__ = ["base_router"]

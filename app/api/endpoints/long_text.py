@@ -25,7 +25,7 @@ from app.models.long_text import (
     LongTextHistoryStats,
     BulkJobAction,
     BulkJobActionResponse,
-    LongTextHistorySort
+    LongTextHistorySort,
 )
 from app.config import Config
 from app.core.long_text_jobs import get_job_manager
@@ -53,11 +53,8 @@ async def create_long_text_job(request: LongTextRequest):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail={
-                    "error": {
-                        "message": error_message,
-                        "type": "invalid_request_error"
-                    }
-                }
+                    "error": {"message": error_message, "type": "invalid_request_error"}
+                },
             )
 
         # Get job manager and processor
@@ -72,7 +69,7 @@ async def create_long_text_job(request: LongTextRequest):
             exaggeration=request.exaggeration,
             cfg_weight=request.cfg_weight,
             temperature=request.temperature,
-            session_id=request.session_id
+            session_id=request.session_id,
         )
 
         # Submit for background processing
@@ -88,18 +85,13 @@ async def create_long_text_job(request: LongTextRequest):
             total_chunks=estimated_chunks,
             message="Job submitted for processing",
             status_url=f"/audio/speech/long/{job_id}",
-            sse_url=f"/audio/speech/long/{job_id}/sse"
+            sse_url=f"/audio/speech/long/{job_id}/sse",
         )
 
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "error": {
-                    "message": str(e),
-                    "type": "invalid_request_error"
-                }
-            }
+            detail={"error": {"message": str(e), "type": "invalid_request_error"}},
         )
     except Exception as e:
         raise HTTPException(
@@ -107,9 +99,9 @@ async def create_long_text_job(request: LongTextRequest):
             detail={
                 "error": {
                     "message": f"Failed to create job: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -128,9 +120,9 @@ async def get_job_status(job_id: str):
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         # Get job metadata and progress
@@ -141,11 +133,8 @@ async def get_job_status(job_id: str):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail={
-                    "error": {
-                        "message": "Failed to load job data",
-                        "type": "api_error"
-                    }
-                }
+                    "error": {"message": "Failed to load job data", "type": "api_error"}
+                },
             )
 
         # Determine download URL if completed
@@ -166,7 +155,7 @@ async def get_job_status(job_id: str):
             updated_at=metadata.updated_at,
             download_url=download_url,
             can_pause=can_pause,
-            can_resume=can_resume
+            can_resume=can_resume,
         )
 
     except HTTPException:
@@ -177,9 +166,9 @@ async def get_job_status(job_id: str):
             detail={
                 "error": {
                     "message": f"Failed to get job status: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -198,9 +187,9 @@ async def download_job_audio(job_id: str):
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         # Get job metadata
@@ -211,9 +200,9 @@ async def download_job_audio(job_id: str):
                 detail={
                     "error": {
                         "message": "Failed to load job metadata",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         # Check if job is completed
@@ -223,9 +212,9 @@ async def download_job_audio(job_id: str):
                 detail={
                     "error": {
                         "message": f"Job is not completed (status: {metadata.status})",
-                        "type": "invalid_request_error"
+                        "type": "invalid_request_error",
                     }
-                }
+                },
             )
 
         # Check if output file exists
@@ -235,9 +224,9 @@ async def download_job_audio(job_id: str):
                 detail={
                     "error": {
                         "message": "Job completed but no output file available",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         # Construct full path
@@ -250,9 +239,9 @@ async def download_job_audio(job_id: str):
                 detail={
                     "error": {
                         "message": "Output file not found on disk",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         # Determine media type based on format
@@ -262,7 +251,7 @@ async def download_job_audio(job_id: str):
         return FileResponse(
             path=str(output_file),
             media_type=media_type,
-            filename=f"long_text_{job_id}.{metadata.output_format}"
+            filename=f"long_text_{job_id}.{metadata.output_format}",
         )
 
     except HTTPException:
@@ -273,9 +262,9 @@ async def download_job_audio(job_id: str):
             detail={
                 "error": {
                     "message": f"Failed to download audio: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -295,9 +284,9 @@ async def pause_job(job_id: str):
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         # Check job status
@@ -308,9 +297,9 @@ async def pause_job(job_id: str):
                 detail={
                     "error": {
                         "message": "Failed to load job metadata",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         if metadata.status != LongTextJobStatus.PROCESSING:
@@ -319,9 +308,9 @@ async def pause_job(job_id: str):
                 detail={
                     "error": {
                         "message": f"Cannot pause job in {metadata.status} state",
-                        "type": "invalid_request_error"
+                        "type": "invalid_request_error",
                     }
-                }
+                },
             )
 
         # Attempt to pause the job
@@ -330,11 +319,8 @@ async def pause_job(job_id: str):
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 detail={
-                    "error": {
-                        "message": "Failed to pause job",
-                        "type": "api_error"
-                    }
-                }
+                    "error": {"message": "Failed to pause job", "type": "api_error"}
+                },
             )
 
         return {"message": f"Job {job_id} paused successfully"}
@@ -347,9 +333,9 @@ async def pause_job(job_id: str):
             detail={
                 "error": {
                     "message": f"Failed to pause job: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -369,9 +355,9 @@ async def resume_job(job_id: str):
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         # Check job status
@@ -382,9 +368,9 @@ async def resume_job(job_id: str):
                 detail={
                     "error": {
                         "message": "Failed to load job metadata",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         if metadata.status != LongTextJobStatus.PAUSED:
@@ -393,9 +379,9 @@ async def resume_job(job_id: str):
                 detail={
                     "error": {
                         "message": f"Cannot resume job in {metadata.status} state",
-                        "type": "invalid_request_error"
+                        "type": "invalid_request_error",
                     }
-                }
+                },
             )
 
         # Resume the job by re-submitting it
@@ -411,14 +397,19 @@ async def resume_job(job_id: str):
             detail={
                 "error": {
                     "message": f"Failed to resume job: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
 @router.delete("/audio/speech/long/{job_id}")
-async def cancel_job(job_id: str, action: LongTextJobActionType = Query(LongTextJobActionType.CANCEL, description="Action to perform: cancel or delete")):
+async def cancel_job(
+    job_id: str,
+    action: LongTextJobActionType = Query(
+        LongTextJobActionType.CANCEL, description="Action to perform: cancel or delete"
+    ),
+):
     """
     Cancel or delete a long text TTS job.
     """
@@ -433,9 +424,9 @@ async def cancel_job(job_id: str, action: LongTextJobActionType = Query(LongText
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         if action == LongTextJobActionType.CANCEL:
@@ -456,9 +447,9 @@ async def cancel_job(job_id: str, action: LongTextJobActionType = Query(LongText
                 detail={
                     "error": {
                         "message": f"Invalid action: {action}",
-                        "type": "invalid_request_error"
+                        "type": "invalid_request_error",
                     }
-                }
+                },
             )
 
     except HTTPException:
@@ -469,9 +460,9 @@ async def cancel_job(job_id: str, action: LongTextJobActionType = Query(LongText
             detail={
                 "error": {
                     "message": f"Failed to {action} job: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -479,7 +470,7 @@ async def cancel_job(job_id: str, action: LongTextJobActionType = Query(LongText
 async def list_jobs(
     session_id: Optional[str] = None,
     job_status: Optional[LongTextJobStatus] = Query(None, alias="status"),
-    limit: int = Query(20, ge=1, le=100)
+    limit: int = Query(20, ge=1, le=100),
 ):
     """
     List long text TTS jobs, optionally filtered by status.
@@ -504,9 +495,9 @@ async def list_jobs(
             detail={
                 "error": {
                     "message": f"Failed to list jobs: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -525,9 +516,9 @@ async def job_progress_sse(job_id: str):
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         async def event_generator():
@@ -546,9 +537,11 @@ async def job_progress_sse(job_id: str):
 
                     # Check if we should send an update
                     send_update = (
-                        metadata.status != last_status or
-                        (progress.overall_progress != last_progress and
-                         progress.overall_progress % 5 == 0)  # Send every 5% progress
+                        metadata.status != last_status
+                        or (
+                            progress.overall_progress != last_progress
+                            and progress.overall_progress % 5 == 0
+                        )  # Send every 5% progress
                     )
 
                     if send_update:
@@ -558,34 +551,44 @@ async def job_progress_sse(job_id: str):
                             data={
                                 "status": metadata.status,
                                 "progress": progress.overall_progress,
-                                "current_chunk": progress.current_chunk.index if progress.current_chunk else None,
+                                "current_chunk": progress.current_chunk.index
+                                if progress.current_chunk
+                                else None,
                                 "total_chunks": metadata.total_chunks,
-                                "estimated_remaining_seconds": progress.estimated_remaining_seconds
-                            }
+                                "estimated_remaining_seconds": progress.estimated_remaining_seconds,
+                            },
                         )
 
                         yield {
                             "event": event.event_type,
-                            "data": json.dumps(event.data)
+                            "data": json.dumps(event.data),
                         }
 
                         last_status = metadata.status
                         last_progress = progress.overall_progress
 
                     # If job is completed, failed, or cancelled, send final event and exit
-                    if metadata.status in [LongTextJobStatus.COMPLETED, LongTextJobStatus.FAILED, LongTextJobStatus.CANCELLED]:
+                    if metadata.status in [
+                        LongTextJobStatus.COMPLETED,
+                        LongTextJobStatus.FAILED,
+                        LongTextJobStatus.CANCELLED,
+                    ]:
                         final_event = LongTextSSEEvent(
                             job_id=job_id,
-                            event_type="completed" if metadata.status == LongTextJobStatus.COMPLETED else "error",
+                            event_type="completed"
+                            if metadata.status == LongTextJobStatus.COMPLETED
+                            else "error",
                             data={
                                 "status": metadata.status,
-                                "message": "Job completed successfully" if metadata.status == LongTextJobStatus.COMPLETED else metadata.error
-                            }
+                                "message": "Job completed successfully"
+                                if metadata.status == LongTextJobStatus.COMPLETED
+                                else metadata.error,
+                            },
                         )
 
                         yield {
                             "event": final_event.event_type,
-                            "data": json.dumps(final_event.data)
+                            "data": json.dumps(final_event.data),
                         }
                         break
 
@@ -597,14 +600,12 @@ async def job_progress_sse(job_id: str):
                     error_event = LongTextSSEEvent(
                         job_id=job_id,
                         event_type="error",
-                        data={
-                            "message": f"Error monitoring job: {str(e)}"
-                        }
+                        data={"message": f"Error monitoring job: {str(e)}"},
                     )
 
                     yield {
                         "event": error_event.event_type,
-                        "data": json.dumps(error_event.data)
+                        "data": json.dumps(error_event.data),
                     }
                     break
 
@@ -618,9 +619,9 @@ async def job_progress_sse(job_id: str):
             detail={
                 "error": {
                     "message": f"Failed to start SSE stream: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -635,13 +636,14 @@ async def list_history_jobs(
     is_archived: Optional[bool] = None,
     sort: LongTextHistorySort = LongTextHistorySort.COMPLETED_DESC,
     limit: int = Query(50, ge=1, le=100),
-    offset: int = Query(0, ge=0)
+    offset: int = Query(0, ge=0),
 ):
     """
     List long text TTS jobs for history view with advanced filtering and sorting.
     """
     try:
         from datetime import datetime
+
         job_manager = get_job_manager()
 
         # Parse date strings
@@ -649,20 +651,32 @@ async def list_history_jobs(
         end_datetime = None
         if start_date:
             try:
-                start_datetime = datetime.fromisoformat(start_date.replace('Z', '+00:00'))
+                start_datetime = datetime.fromisoformat(
+                    start_date.replace("Z", "+00:00")
+                )
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"error": {"message": "Invalid start_date format", "type": "invalid_request_error"}}
+                    detail={
+                        "error": {
+                            "message": "Invalid start_date format",
+                            "type": "invalid_request_error",
+                        }
+                    },
                 )
 
         if end_date:
             try:
-                end_datetime = datetime.fromisoformat(end_date.replace('Z', '+00:00'))
+                end_datetime = datetime.fromisoformat(end_date.replace("Z", "+00:00"))
             except ValueError:
                 raise HTTPException(
                     status_code=status.HTTP_400_BAD_REQUEST,
-                    detail={"error": {"message": "Invalid end_date format", "type": "invalid_request_error"}}
+                    detail={
+                        "error": {
+                            "message": "Invalid end_date format",
+                            "type": "invalid_request_error",
+                        }
+                    },
                 )
 
         # Get filtered jobs
@@ -675,7 +689,7 @@ async def list_history_jobs(
             is_archived=is_archived,
             sort_by=sort.value,
             limit=limit,
-            offset=offset
+            offset=offset,
         )
 
         return job_list
@@ -688,9 +702,9 @@ async def list_history_jobs(
             detail={
                 "error": {
                     "message": f"Failed to list history jobs: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -710,9 +724,9 @@ async def get_history_stats(session_id: Optional[str] = None):
             detail={
                 "error": {
                     "message": f"Failed to get history stats: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -731,9 +745,9 @@ async def get_job_details(job_id: str):
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         # Load metadata and chunks
@@ -747,9 +761,9 @@ async def get_job_details(job_id: str):
                 detail={
                     "error": {
                         "message": "Failed to load job metadata",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         # Track access
@@ -762,9 +776,13 @@ async def get_job_details(job_id: str):
             error_log=[metadata.error] if metadata.error else [],
             performance_metrics={
                 "total_processing_time_ms": metadata.total_processing_time_ms,
-                "avg_chunk_time_ms": metadata.total_processing_time_ms / len(chunks) if chunks else 0,
-                "success_rate": len([c for c in chunks if c.audio_file]) / len(chunks) if chunks else 0
-            }
+                "avg_chunk_time_ms": metadata.total_processing_time_ms / len(chunks)
+                if chunks
+                else 0,
+                "success_rate": len([c for c in chunks if c.audio_file]) / len(chunks)
+                if chunks
+                else 0,
+            },
         )
 
     except HTTPException:
@@ -775,9 +793,9 @@ async def get_job_details(job_id: str):
             detail={
                 "error": {
                     "message": f"Failed to get job details: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -796,9 +814,9 @@ async def update_job_metadata(job_id: str, update_request: LongTextJobUpdateRequ
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         # Update metadata
@@ -806,7 +824,7 @@ async def update_job_metadata(job_id: str, update_request: LongTextJobUpdateRequ
             job_id=job_id,
             display_name=update_request.display_name,
             tags=update_request.tags,
-            is_archived=update_request.is_archived
+            is_archived=update_request.is_archived,
         )
 
         if not success:
@@ -815,9 +833,9 @@ async def update_job_metadata(job_id: str, update_request: LongTextJobUpdateRequ
                 detail={
                     "error": {
                         "message": "Failed to update job metadata",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         # Get updated metadata
@@ -826,7 +844,7 @@ async def update_job_metadata(job_id: str, update_request: LongTextJobUpdateRequ
         return LongTextJobAction(
             success=True,
             message="Job metadata updated successfully",
-            status=metadata.status if metadata else LongTextJobStatus.FAILED
+            status=metadata.status if metadata else LongTextJobStatus.FAILED,
         )
 
     except HTTPException:
@@ -837,13 +855,15 @@ async def update_job_metadata(job_id: str, update_request: LongTextJobUpdateRequ
             detail={
                 "error": {
                     "message": f"Failed to update job: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
-@router.post("/audio/speech/long/{job_id}/retry", response_model=LongTextJobCreateResponse)
+@router.post(
+    "/audio/speech/long/{job_id}/retry", response_model=LongTextJobCreateResponse
+)
 async def retry_job(job_id: str, retry_request: LongTextJobRetryRequest):
     """
     Retry a failed job, optionally with new parameters.
@@ -859,16 +879,16 @@ async def retry_job(job_id: str, retry_request: LongTextJobRetryRequest):
                 detail={
                     "error": {
                         "message": f"Job {job_id} not found",
-                        "type": "not_found_error"
+                        "type": "not_found_error",
                     }
-                }
+                },
             )
 
         # Retry the job
         new_job_id = job_manager.retry_job(
             job_id=job_id,
             preserve_chunks=retry_request.preserve_chunks,
-            new_parameters=retry_request.new_parameters
+            new_parameters=retry_request.new_parameters,
         )
 
         if not new_job_id:
@@ -877,9 +897,9 @@ async def retry_job(job_id: str, retry_request: LongTextJobRetryRequest):
                 detail={
                     "error": {
                         "message": "Cannot retry job in current state",
-                        "type": "invalid_request_error"
+                        "type": "invalid_request_error",
                     }
-                }
+                },
             )
 
         # Submit new job for processing
@@ -893,9 +913,9 @@ async def retry_job(job_id: str, retry_request: LongTextJobRetryRequest):
                 detail={
                     "error": {
                         "message": "Failed to load new job metadata",
-                        "type": "api_error"
+                        "type": "api_error",
                     }
-                }
+                },
             )
 
         return LongTextJobCreateResponse(
@@ -904,7 +924,7 @@ async def retry_job(job_id: str, retry_request: LongTextJobRetryRequest):
             message=f"Retry job created successfully (retry #{new_metadata.retry_count})",
             total_chunks=new_metadata.total_chunks,
             status_url=f"/audio/speech/long/{new_job_id}",
-            sse_url=f"/audio/speech/long/{new_job_id}/sse"
+            sse_url=f"/audio/speech/long/{new_job_id}/sse",
         )
 
     except HTTPException:
@@ -915,16 +935,18 @@ async def retry_job(job_id: str, retry_request: LongTextJobRetryRequest):
             detail={
                 "error": {
                     "message": f"Failed to retry job: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
 @router.delete("/audio/speech/long/history")
 async def clear_history(
     session_id: Optional[str] = None,
-    confirm: bool = Query(False, description="Confirmation that user wants to clear history")
+    confirm: bool = Query(
+        False, description="Confirmation that user wants to clear history"
+    ),
 ):
     """
     Clear job history. Requires confirmation.
@@ -936,9 +958,9 @@ async def clear_history(
                 detail={
                     "error": {
                         "message": "History clearing requires confirmation (confirm=true)",
-                        "type": "invalid_request_error"
+                        "type": "invalid_request_error",
                     }
-                }
+                },
             )
 
         job_manager = get_job_manager()
@@ -950,7 +972,11 @@ async def clear_history(
         failed_count = 0
 
         for job in jobs_to_clear.jobs:
-            if job.status in [LongTextJobStatus.COMPLETED, LongTextJobStatus.FAILED, LongTextJobStatus.CANCELLED]:
+            if job.status in [
+                LongTextJobStatus.COMPLETED,
+                LongTextJobStatus.FAILED,
+                LongTextJobStatus.CANCELLED,
+            ]:
                 if job_manager.delete_job(job.job_id):
                     cleared_count += 1
                 else:
@@ -959,7 +985,7 @@ async def clear_history(
         return {
             "message": f"Cleared {cleared_count} jobs from history",
             "cleared_count": cleared_count,
-            "failed_count": failed_count
+            "failed_count": failed_count,
         }
 
     except HTTPException:
@@ -970,9 +996,9 @@ async def clear_history(
             detail={
                 "error": {
                     "message": f"Failed to clear history: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )
 
 
@@ -988,9 +1014,9 @@ async def bulk_job_action(bulk_request: BulkJobAction):
                 detail={
                     "error": {
                         "message": "Bulk operations require confirmation",
-                        "type": "invalid_request_error"
+                        "type": "invalid_request_error",
                     }
-                }
+                },
             )
 
         job_manager = get_job_manager()
@@ -1048,7 +1074,7 @@ async def bulk_job_action(bulk_request: BulkJobAction):
             failed_count=failed_count,
             total_count=total_count,
             failed_jobs=failed_jobs,
-            message=f"Bulk {bulk_request.action}: {success_count}/{total_count} successful"
+            message=f"Bulk {bulk_request.action}: {success_count}/{total_count} successful",
         )
 
     except HTTPException:
@@ -1059,7 +1085,7 @@ async def bulk_job_action(bulk_request: BulkJobAction):
             detail={
                 "error": {
                     "message": f"Failed to perform bulk action: {str(e)}",
-                    "type": "api_error"
+                    "type": "api_error",
                 }
-            }
+            },
         )

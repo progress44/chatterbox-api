@@ -34,7 +34,9 @@ class LongTextJobManager:
         self.data_dir = Path(Config.LONG_TEXT_DATA_DIR)
         self.active_jobs: Dict[str, asyncio.Task] = {}
         self.job_queue: asyncio.Queue = asyncio.Queue()
-        self.processing_semaphore = asyncio.Semaphore(Config.LONG_TEXT_MAX_CONCURRENT_JOBS)
+        self.processing_semaphore = asyncio.Semaphore(
+            Config.LONG_TEXT_MAX_CONCURRENT_JOBS
+        )
         self._ensure_data_directory()
 
     def _ensure_data_directory(self):
@@ -50,17 +52,17 @@ class LongTextJobManager:
         """Get all file paths for a job"""
         job_dir = self._get_job_directory(job_id)
         return {
-            'metadata': job_dir / 'metadata.json',
-            'input_text': job_dir / 'input_text.txt',
-            'chunks': job_dir / 'chunks.json',
-            'progress': job_dir / 'progress.json',
-            'chunks_dir': job_dir / 'chunks',
-            'output_dir': job_dir / 'output'
+            "metadata": job_dir / "metadata.json",
+            "input_text": job_dir / "input_text.txt",
+            "chunks": job_dir / "chunks.json",
+            "progress": job_dir / "progress.json",
+            "chunks_dir": job_dir / "chunks",
+            "output_dir": job_dir / "output",
         }
 
     def _generate_text_hash(self, text: str) -> str:
         """Generate SHA256 hash of input text"""
-        return hashlib.sha256(text.encode('utf-8')).hexdigest()
+        return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
     def _create_job_directories(self, job_id: str):
         """Create directory structure for a new job"""
@@ -68,8 +70,8 @@ class LongTextJobManager:
         job_dir = self._get_job_directory(job_id)
 
         job_dir.mkdir(parents=True, exist_ok=True)
-        paths['chunks_dir'].mkdir(exist_ok=True)
-        paths['output_dir'].mkdir(exist_ok=True)
+        paths["chunks_dir"].mkdir(exist_ok=True)
+        paths["output_dir"].mkdir(exist_ok=True)
 
     def _save_job_metadata(self, metadata: LongTextJobMetadata):
         """Save job metadata to filesystem"""
@@ -78,25 +80,32 @@ class LongTextJobManager:
         # Update timestamp
         metadata.updated_at = datetime.utcnow()
 
-        with open(paths['metadata'], 'w') as f:
+        with open(paths["metadata"], "w") as f:
             json.dump(metadata.dict(), f, indent=2, default=str)
 
     def _load_job_metadata(self, job_id: str) -> Optional[LongTextJobMetadata]:
         """Load job metadata from filesystem"""
         paths = self._get_job_file_paths(job_id)
 
-        if not paths['metadata'].exists():
+        if not paths["metadata"].exists():
             return None
 
         try:
-            with open(paths['metadata'], 'r') as f:
+            with open(paths["metadata"], "r") as f:
                 data = json.load(f)
 
             # Convert datetime strings back to datetime objects
-            for field in ['created_at', 'updated_at', 'processing_started_at',
-                         'processing_paused_at', 'processing_completed_at']:
+            for field in [
+                "created_at",
+                "updated_at",
+                "processing_started_at",
+                "processing_paused_at",
+                "processing_completed_at",
+            ]:
                 if data.get(field):
-                    data[field] = datetime.fromisoformat(data[field].replace('Z', '+00:00'))
+                    data[field] = datetime.fromisoformat(
+                        data[field].replace("Z", "+00:00")
+                    )
 
             return LongTextJobMetadata(**data)
         except Exception as e:
@@ -108,26 +117,28 @@ class LongTextJobManager:
         paths = self._get_job_file_paths(job_id)
 
         chunks_data = [chunk.dict() for chunk in chunks]
-        with open(paths['chunks'], 'w') as f:
+        with open(paths["chunks"], "w") as f:
             json.dump(chunks_data, f, indent=2, default=str)
 
     def _load_chunks_data(self, job_id: str) -> List[LongTextChunk]:
         """Load chunks data from filesystem"""
         paths = self._get_job_file_paths(job_id)
 
-        if not paths['chunks'].exists():
+        if not paths["chunks"].exists():
             return []
 
         try:
-            with open(paths['chunks'], 'r') as f:
+            with open(paths["chunks"], "r") as f:
                 data = json.load(f)
 
             chunks = []
             for chunk_data in data:
                 # Convert datetime strings back to datetime objects
-                for field in ['processing_started_at', 'processing_completed_at']:
+                for field in ["processing_started_at", "processing_completed_at"]:
                     if chunk_data.get(field):
-                        chunk_data[field] = datetime.fromisoformat(chunk_data[field].replace('Z', '+00:00'))
+                        chunk_data[field] = datetime.fromisoformat(
+                            chunk_data[field].replace("Z", "+00:00")
+                        )
                 chunks.append(LongTextChunk(**chunk_data))
 
             return chunks
@@ -139,31 +150,33 @@ class LongTextJobManager:
         """Save input text to filesystem"""
         paths = self._get_job_file_paths(job_id)
 
-        with open(paths['input_text'], 'w', encoding='utf-8') as f:
+        with open(paths["input_text"], "w", encoding="utf-8") as f:
             f.write(text)
 
     def _load_input_text(self, job_id: str) -> Optional[str]:
         """Load input text from filesystem"""
         paths = self._get_job_file_paths(job_id)
 
-        if not paths['input_text'].exists():
+        if not paths["input_text"].exists():
             return None
 
         try:
-            with open(paths['input_text'], 'r', encoding='utf-8') as f:
+            with open(paths["input_text"], "r", encoding="utf-8") as f:
                 return f.read()
         except Exception as e:
             logger.error(f"Failed to load input text for job {job_id}: {e}")
             return None
 
-    def create_job(self,
-                   text: str,
-                   voice: Optional[str] = None,
-                   output_format: str = "mp3",
-                   exaggeration: Optional[float] = None,
-                   cfg_weight: Optional[float] = None,
-                   temperature: Optional[float] = None,
-                   session_id: Optional[str] = None) -> Tuple[str, int]:
+    def create_job(
+        self,
+        text: str,
+        voice: Optional[str] = None,
+        output_format: str = "mp3",
+        exaggeration: Optional[float] = None,
+        cfg_weight: Optional[float] = None,
+        temperature: Optional[float] = None,
+        session_id: Optional[str] = None,
+    ) -> Tuple[str, int]:
         """
         Create a new long text job
 
@@ -177,7 +190,11 @@ class LongTextJobManager:
         text_hash = self._generate_text_hash(text)
 
         # Estimate number of chunks
-        estimated_chunks = max(1, (len(text) + Config.LONG_TEXT_CHUNK_SIZE - 1) // Config.LONG_TEXT_CHUNK_SIZE)
+        estimated_chunks = max(
+            1,
+            (len(text) + Config.LONG_TEXT_CHUNK_SIZE - 1)
+            // Config.LONG_TEXT_CHUNK_SIZE,
+        )
 
         # Create job directories
         self._create_job_directories(job_id)
@@ -198,20 +215,22 @@ class LongTextJobManager:
             total_chunks=estimated_chunks,
             voice=resolved_voice_name,
             parameters={
-                'exaggeration': exaggeration,
-                'cfg_weight': cfg_weight,
-                'temperature': temperature,
-                'output_format': output_format
+                "exaggeration": exaggeration,
+                "cfg_weight": cfg_weight,
+                "temperature": temperature,
+                "output_format": output_format,
             },
             output_format=output_format,
-            user_session_id=session_id
+            user_session_id=session_id,
         )
 
         # Save to filesystem
         self._save_job_metadata(metadata)
         self._save_input_text(job_id, text)
 
-        logger.info(f"Created job {job_id} for {len(text)} characters ({estimated_chunks} chunks)")
+        logger.info(
+            f"Created job {job_id} for {len(text)} characters ({estimated_chunks} chunks)"
+        )
         return job_id, estimated_chunks
 
     def get_job_status(self, job_id: str) -> Optional[LongTextJobResponse]:
@@ -228,9 +247,11 @@ class LongTextJobManager:
         # Determine available actions
         can_pause = metadata.status == LongTextJobStatus.PROCESSING
         can_resume = metadata.status == LongTextJobStatus.PAUSED
-        can_cancel = metadata.status in [LongTextJobStatus.PENDING,
-                                       LongTextJobStatus.PROCESSING,
-                                       LongTextJobStatus.PAUSED]
+        can_cancel = metadata.status in [
+            LongTextJobStatus.PENDING,
+            LongTextJobStatus.PROCESSING,
+            LongTextJobStatus.PAUSED,
+        ]
 
         # Generate download URL if completed
         download_url = None
@@ -247,10 +268,12 @@ class LongTextJobManager:
             download_url=download_url,
             can_pause=can_pause,
             can_resume=can_resume,
-            can_cancel=can_cancel
+            can_cancel=can_cancel,
         )
 
-    def _calculate_progress(self, metadata: LongTextJobMetadata, chunks: List[LongTextChunk]) -> LongTextProgress:
+    def _calculate_progress(
+        self, metadata: LongTextJobMetadata, chunks: List[LongTextChunk]
+    ) -> LongTextProgress:
         """Calculate current progress for a job"""
         completed_chunks = [chunk for chunk in chunks if chunk.audio_file is not None]
         current_chunk = None
@@ -270,7 +293,9 @@ class LongTextJobManager:
         # Estimate remaining time based on completed chunks
         estimated_remaining = None
         if completed_chunks and metadata.current_chunk is not None:
-            avg_time_per_chunk = sum(c.duration_ms or 0 for c in completed_chunks) / len(completed_chunks)
+            avg_time_per_chunk = sum(
+                c.duration_ms or 0 for c in completed_chunks
+            ) / len(completed_chunks)
             remaining_chunks = metadata.total_chunks - len(completed_chunks)
             estimated_remaining = int((avg_time_per_chunk * remaining_chunks) / 1000)
 
@@ -281,10 +306,12 @@ class LongTextJobManager:
             completed_chunks=completed_chunks,
             estimated_remaining_seconds=estimated_remaining,
             status=metadata.status,
-            error=metadata.error
+            error=metadata.error,
         )
 
-    def list_jobs(self, session_id: Optional[str] = None, limit: int = 50) -> LongTextJobList:
+    def list_jobs(
+        self, session_id: Optional[str] = None, limit: int = 50
+    ) -> LongTextJobList:
         """List all jobs, optionally filtered by session ID"""
         jobs = []
         active_count = 0
@@ -304,7 +331,9 @@ class LongTextJobManager:
 
                 # Load input text for preview
                 input_text = self._load_input_text(job_dir.name) or ""
-                text_preview = input_text[:100] + ("..." if len(input_text) > 100 else "")
+                text_preview = input_text[:100] + (
+                    "..." if len(input_text) > 100 else ""
+                )
 
                 # Calculate progress
                 chunks = self._load_chunks_data(job_dir.name)
@@ -316,24 +345,29 @@ class LongTextJobManager:
                     download_url = f"/v1/audio/speech/long/{job_dir.name}/download"
 
                 # Count job types
-                if metadata.status in [LongTextJobStatus.PENDING, LongTextJobStatus.PROCESSING]:
+                if metadata.status in [
+                    LongTextJobStatus.PENDING,
+                    LongTextJobStatus.PROCESSING,
+                ]:
                     active_count += 1
                 elif metadata.status == LongTextJobStatus.COMPLETED:
                     completed_count += 1
 
-                jobs.append(LongTextJobListItem(
-                    job_id=job_dir.name,
-                    status=metadata.status,
-                    text_preview=text_preview,
-                    text_length=metadata.text_length,
-                    progress_percentage=progress.overall_progress,
-                    created_at=metadata.created_at,
-                    completed_at=metadata.processing_completed_at,
-                    download_url=download_url,
-                    can_resume=metadata.status == LongTextJobStatus.PAUSED,
-                    voice=metadata.voice,
-                    parameters=metadata.parameters
-                ))
+                jobs.append(
+                    LongTextJobListItem(
+                        job_id=job_dir.name,
+                        status=metadata.status,
+                        text_preview=text_preview,
+                        text_length=metadata.text_length,
+                        progress_percentage=progress.overall_progress,
+                        created_at=metadata.created_at,
+                        completed_at=metadata.processing_completed_at,
+                        download_url=download_url,
+                        can_resume=metadata.status == LongTextJobStatus.PAUSED,
+                        voice=metadata.voice,
+                        parameters=metadata.parameters,
+                    )
+                )
 
         # Sort by creation date (newest first)
         jobs.sort(key=lambda x: x.created_at, reverse=True)
@@ -345,29 +379,35 @@ class LongTextJobManager:
             jobs=jobs,
             total_jobs=len(jobs),
             active_jobs=active_count,
-            completed_jobs=completed_count
+            completed_jobs=completed_count,
         )
 
-    def list_history_jobs(self, session_id: Optional[str] = None,
-                         status_filter: Optional[LongTextJobStatus] = None,
-                         start_date: Optional[datetime] = None,
-                         end_date: Optional[datetime] = None,
-                         search_text: Optional[str] = None,
-                         is_archived: Optional[bool] = None,
-                         sort_by: str = "completed_desc",
-                         limit: int = 50, offset: int = 0) -> LongTextJobList:
+    def list_history_jobs(
+        self,
+        session_id: Optional[str] = None,
+        status_filter: Optional[LongTextJobStatus] = None,
+        start_date: Optional[datetime] = None,
+        end_date: Optional[datetime] = None,
+        search_text: Optional[str] = None,
+        is_archived: Optional[bool] = None,
+        sort_by: str = "completed_desc",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> LongTextJobList:
         """List jobs for history view with advanced filtering and sorting"""
         jobs = []
         active_count = 0
         completed_count = 0
 
         if not self.data_dir.exists():
-            return LongTextJobList(jobs=[], total_jobs=0, active_jobs=0, completed_jobs=0)
+            return LongTextJobList(
+                jobs=[], total_jobs=0, active_jobs=0, completed_jobs=0
+            )
 
         # Collect all jobs first
         all_jobs = []
         for job_dir in self.data_dir.iterdir():
-            if not job_dir.is_dir() or job_dir.name in ['history']:
+            if not job_dir.is_dir() or job_dir.name in ["history"]:
                 continue
 
             metadata = self._load_job_metadata(job_dir.name)
@@ -395,8 +435,10 @@ class LongTextJobManager:
             if search_text:
                 input_text = self._load_input_text(job_dir.name) or ""
                 display_name = metadata.display_name or ""
-                if (search_text.lower() not in input_text.lower() and
-                    search_text.lower() not in display_name.lower()):
+                if (
+                    search_text.lower() not in input_text.lower()
+                    and search_text.lower() not in display_name.lower()
+                ):
                     continue
 
             # Load input text for preview
@@ -413,7 +455,10 @@ class LongTextJobManager:
                 download_url = f"/v1/audio/speech/long/{job_dir.name}/download"
 
             # Count job types
-            if metadata.status in [LongTextJobStatus.PENDING, LongTextJobStatus.PROCESSING]:
+            if metadata.status in [
+                LongTextJobStatus.PENDING,
+                LongTextJobStatus.PROCESSING,
+            ]:
                 active_count += 1
             elif metadata.status == LongTextJobStatus.COMPLETED:
                 completed_count += 1
@@ -425,7 +470,8 @@ class LongTextJobManager:
                 text_length=metadata.text_length,
                 progress_percentage=progress.overall_progress,
                 created_at=metadata.created_at,
-                completed_at=metadata.completion_timestamp or metadata.processing_completed_at,
+                completed_at=metadata.completion_timestamp
+                or metadata.processing_completed_at,
                 download_url=download_url,
                 can_resume=metadata.status == LongTextJobStatus.PAUSED,
                 voice=metadata.voice,
@@ -436,7 +482,7 @@ class LongTextJobManager:
                 display_name=metadata.display_name,
                 tags=metadata.tags,
                 last_accessed=metadata.last_accessed,
-                parameters=metadata.parameters
+                parameters=metadata.parameters,
             )
             all_jobs.append(job_item)
 
@@ -456,7 +502,9 @@ class LongTextJobManager:
         elif sort_by == "name_asc":
             all_jobs.sort(key=lambda x: (x.display_name or x.text_preview).lower())
         elif sort_by == "name_desc":
-            all_jobs.sort(key=lambda x: (x.display_name or x.text_preview).lower(), reverse=True)
+            all_jobs.sort(
+                key=lambda x: (x.display_name or x.text_preview).lower(), reverse=True
+            )
         elif sort_by == "size_desc":
             all_jobs.sort(key=lambda x: x.audio_file_size or 0, reverse=True)
         elif sort_by == "size_asc":
@@ -464,13 +512,13 @@ class LongTextJobManager:
 
         # Apply pagination
         total_count = len(all_jobs)
-        jobs = all_jobs[offset:offset + limit]
+        jobs = all_jobs[offset : offset + limit]
 
         return LongTextJobList(
             jobs=jobs,
             total_jobs=total_count,
             active_jobs=active_count,
-            completed_jobs=completed_count
+            completed_jobs=completed_count,
         )
 
     def get_history_stats(self, session_id: Optional[str] = None) -> Dict[str, Any]:
@@ -485,7 +533,7 @@ class LongTextJobManager:
                 "average_processing_time_seconds": 0.0,
                 "success_rate_percentage": 0.0,
                 "most_used_voice": None,
-                "jobs_by_month": {}
+                "jobs_by_month": {},
             }
 
         total_jobs = 0
@@ -498,7 +546,7 @@ class LongTextJobManager:
         jobs_by_month = {}
 
         for job_dir in self.data_dir.iterdir():
-            if not job_dir.is_dir() or job_dir.name in ['history']:
+            if not job_dir.is_dir() or job_dir.name in ["history"]:
                 continue
 
             metadata = self._load_job_metadata(job_dir.name)
@@ -531,8 +579,14 @@ class LongTextJobManager:
 
         # Calculate averages and percentages
         success_rate = (completed_jobs / total_jobs * 100) if total_jobs > 0 else 0.0
-        avg_processing_time = (total_processing_time / completed_jobs / 1000) if completed_jobs > 0 else 0.0
-        most_used_voice = max(voice_counts, key=voice_counts.get) if voice_counts else None
+        avg_processing_time = (
+            (total_processing_time / completed_jobs / 1000)
+            if completed_jobs > 0
+            else 0.0
+        )
+        most_used_voice = (
+            max(voice_counts, key=voice_counts.get) if voice_counts else None
+        )
 
         return {
             "total_jobs": total_jobs,
@@ -543,7 +597,7 @@ class LongTextJobManager:
             "average_processing_time_seconds": avg_processing_time,
             "success_rate_percentage": success_rate,
             "most_used_voice": most_used_voice,
-            "jobs_by_month": jobs_by_month
+            "jobs_by_month": jobs_by_month,
         }
 
     def pause_job(self, job_id: str) -> bool:
@@ -603,8 +657,13 @@ class LongTextJobManager:
         logger.info(f"Cancelled job {job_id}")
         return True
 
-    def complete_job(self, job_id: str, output_path: str, output_size_bytes: int,
-                    output_duration_seconds: float) -> bool:
+    def complete_job(
+        self,
+        job_id: str,
+        output_path: str,
+        output_size_bytes: int,
+        output_duration_seconds: float,
+    ) -> bool:
         """Mark a job as completed and set up for history persistence"""
         metadata = self._load_job_metadata(job_id)
         if not metadata:
@@ -637,18 +696,23 @@ class LongTextJobManager:
         # Update processing time
         if metadata.processing_started_at:
             metadata.total_processing_time_ms = int(
-                (metadata.processing_completed_at - metadata.processing_started_at).total_seconds() * 1000
+                (
+                    metadata.processing_completed_at - metadata.processing_started_at
+                ).total_seconds()
+                * 1000
             )
 
         self._save_job_metadata(metadata)
-        logger.info(f"Completed job {job_id} - Duration: {output_duration_seconds:.1f}s, Size: {output_size_bytes:,} bytes")
+        logger.info(
+            f"Completed job {job_id} - Duration: {output_duration_seconds:.1f}s, Size: {output_size_bytes:,} bytes"
+        )
         return True
 
     def _setup_persistent_storage(self, job_id: str, output_path: str) -> Optional[str]:
         """Set up persistent storage for completed job audio"""
         try:
             paths = self._get_job_file_paths(job_id)
-            source_file = paths['output_dir'] / Path(output_path).name
+            source_file = paths["output_dir"] / Path(output_path).name
 
             if not source_file.exists():
                 logger.warning(f"Output file not found for job {job_id}: {source_file}")
@@ -694,8 +758,13 @@ class LongTextJobManager:
         logger.info(f"Unarchived job {job_id}")
         return True
 
-    def update_job_metadata(self, job_id: str, display_name: Optional[str] = None,
-                           tags: Optional[List[str]] = None, is_archived: Optional[bool] = None) -> bool:
+    def update_job_metadata(
+        self,
+        job_id: str,
+        display_name: Optional[str] = None,
+        tags: Optional[List[str]] = None,
+        is_archived: Optional[bool] = None,
+    ) -> bool:
         """Update job metadata fields"""
         metadata = self._load_job_metadata(job_id)
         if not metadata:
@@ -723,15 +792,24 @@ class LongTextJobManager:
         self._save_job_metadata(metadata)
         return True
 
-    def retry_job(self, job_id: str, preserve_chunks: bool = True,
-                  new_parameters: Optional[Dict[str, Any]] = None) -> Optional[str]:
+    def retry_job(
+        self,
+        job_id: str,
+        preserve_chunks: bool = True,
+        new_parameters: Optional[Dict[str, Any]] = None,
+    ) -> Optional[str]:
         """Retry a failed job, optionally with new parameters"""
         original_metadata = self._load_job_metadata(job_id)
         if not original_metadata:
             return None
 
-        if original_metadata.status not in [LongTextJobStatus.FAILED, LongTextJobStatus.CANCELLED]:
-            logger.warning(f"Cannot retry job {job_id} with status {original_metadata.status}")
+        if original_metadata.status not in [
+            LongTextJobStatus.FAILED,
+            LongTextJobStatus.CANCELLED,
+        ]:
+            logger.warning(
+                f"Cannot retry job {job_id} with status {original_metadata.status}"
+            )
             return None
 
         # Load original input text
@@ -749,10 +827,10 @@ class LongTextJobManager:
             text=input_text,
             voice=original_metadata.voice,
             output_format=original_metadata.output_format,
-            exaggeration=parameters.get('exaggeration'),
-            cfg_weight=parameters.get('cfg_weight'),
-            temperature=parameters.get('temperature'),
-            session_id=original_metadata.user_session_id
+            exaggeration=parameters.get("exaggeration"),
+            cfg_weight=parameters.get("cfg_weight"),
+            temperature=parameters.get("temperature"),
+            session_id=original_metadata.user_session_id,
         )
 
         # Update metadata to link to original job
@@ -766,7 +844,11 @@ class LongTextJobManager:
         if preserve_chunks:
             try:
                 original_chunks = self._load_chunks_data(job_id)
-                successful_chunks = [chunk for chunk in original_chunks if chunk.audio_file and not chunk.error]
+                successful_chunks = [
+                    chunk
+                    for chunk in original_chunks
+                    if chunk.audio_file and not chunk.error
+                ]
 
                 if successful_chunks:
                     # Copy successful chunk files to new job
@@ -775,15 +857,21 @@ class LongTextJobManager:
 
                     for chunk in successful_chunks:
                         if chunk.audio_file:
-                            original_file = original_paths['chunks_dir'] / chunk.audio_file
+                            original_file = (
+                                original_paths["chunks_dir"] / chunk.audio_file
+                            )
                             if original_file.exists():
-                                new_file = new_paths['chunks_dir'] / chunk.audio_file
+                                new_file = new_paths["chunks_dir"] / chunk.audio_file
                                 shutil.copy2(original_file, new_file)
 
-                    logger.info(f"Copied {len(successful_chunks)} successful chunks to retry job {new_job_id}")
+                    logger.info(
+                        f"Copied {len(successful_chunks)} successful chunks to retry job {new_job_id}"
+                    )
 
             except Exception as e:
-                logger.warning(f"Failed to preserve chunks for retry job {new_job_id}: {e}")
+                logger.warning(
+                    f"Failed to preserve chunks for retry job {new_job_id}: {e}"
+                )
 
         logger.info(f"Created retry job {new_job_id} for original job {job_id}")
         return new_job_id
@@ -807,7 +895,11 @@ class LongTextJobManager:
             logger.error(f"Failed to delete job {job_id}: {e}")
             return False
 
-    def cleanup_old_jobs(self, retention_days: Optional[int] = None, max_storage_bytes: Optional[int] = None):
+    def cleanup_old_jobs(
+        self,
+        retention_days: Optional[int] = None,
+        max_storage_bytes: Optional[int] = None,
+    ):
         """Clean up old jobs based on retention policy and storage limits"""
         if not self.data_dir.exists():
             return
@@ -819,7 +911,7 @@ class LongTextJobManager:
 
         # First pass: Delete jobs past retention period
         for job_dir in self.data_dir.iterdir():
-            if not job_dir.is_dir() or job_dir.name == 'history':
+            if not job_dir.is_dir() or job_dir.name == "history":
                 continue
 
             metadata = self._load_job_metadata(job_dir.name)
@@ -834,9 +926,14 @@ class LongTextJobManager:
                 # Keep completed jobs longer if they're not archived
                 if metadata.is_archived and comparison_date < cutoff_date:
                     should_delete = True
-            elif metadata.status in [LongTextJobStatus.FAILED, LongTextJobStatus.CANCELLED]:
+            elif metadata.status in [
+                LongTextJobStatus.FAILED,
+                LongTextJobStatus.CANCELLED,
+            ]:
                 # Delete failed/cancelled jobs sooner
-                failed_cutoff = datetime.utcnow() - timedelta(days=max(7, retention_days // 4))
+                failed_cutoff = datetime.utcnow() - timedelta(
+                    days=max(7, retention_days // 4)
+                )
                 if comparison_date < failed_cutoff:
                     should_delete = True
 
@@ -865,7 +962,9 @@ class LongTextJobManager:
                             excess_bytes -= job_size
 
         if deleted_count > 0:
-            logger.info(f"Cleaned up {deleted_count} old jobs, freed {freed_bytes:,} bytes")
+            logger.info(
+                f"Cleaned up {deleted_count} old jobs, freed {freed_bytes:,} bytes"
+            )
 
     def _calculate_job_size(self, job_id: str) -> int:
         """Calculate total size of job files"""
@@ -875,7 +974,7 @@ class LongTextJobManager:
         if not job_dir.exists():
             return 0
 
-        for file_path in job_dir.rglob('*'):
+        for file_path in job_dir.rglob("*"):
             if file_path.is_file():
                 try:
                     total_size += file_path.stat().st_size
@@ -902,7 +1001,7 @@ class LongTextJobManager:
         jobs_with_size = []
 
         for job_dir in self.data_dir.iterdir():
-            if not job_dir.is_dir() or job_dir.name == 'history':
+            if not job_dir.is_dir() or job_dir.name == "history":
                 continue
 
             metadata = self._load_job_metadata(job_dir.name)
@@ -932,7 +1031,7 @@ class LongTextJobManager:
                     cleaned_count += 1
                 except OSError:
                     continue
-            elif item.is_dir() and item.name != 'history':
+            elif item.is_dir() and item.name != "history":
                 # Check if directory has valid metadata
                 metadata = self._load_job_metadata(item.name)
                 if not metadata:
@@ -955,7 +1054,7 @@ class LongTextJobManager:
         archived_count = 0
 
         for job_dir in self.data_dir.iterdir():
-            if not job_dir.is_dir() or job_dir.name == 'history':
+            if not job_dir.is_dir() or job_dir.name == "history":
                 continue
 
             metadata = self._load_job_metadata(job_dir.name)
@@ -963,10 +1062,12 @@ class LongTextJobManager:
                 continue
 
             # Auto-archive old completed jobs that aren't already archived
-            if (metadata.status == LongTextJobStatus.COMPLETED and
-                not metadata.is_archived and
-                (metadata.completion_timestamp or metadata.created_at) < archive_cutoff):
-
+            if (
+                metadata.status == LongTextJobStatus.COMPLETED
+                and not metadata.is_archived
+                and (metadata.completion_timestamp or metadata.created_at)
+                < archive_cutoff
+            ):
                 if self.archive_job(job_dir.name):
                     archived_count += 1
 
@@ -982,7 +1083,7 @@ class LongTextJobManager:
                 "avg_job_size_bytes": 0,
                 "completed_jobs_storage": 0,
                 "failed_jobs_storage": 0,
-                "active_jobs_storage": 0
+                "active_jobs_storage": 0,
             }
 
         total_storage = 0
@@ -992,7 +1093,7 @@ class LongTextJobManager:
         active_storage = 0
 
         for job_dir in self.data_dir.iterdir():
-            if not job_dir.is_dir() or job_dir.name == 'history':
+            if not job_dir.is_dir() or job_dir.name == "history":
                 continue
 
             metadata = self._load_job_metadata(job_dir.name)
@@ -1007,7 +1108,10 @@ class LongTextJobManager:
                 completed_storage += job_size
             elif metadata.status == LongTextJobStatus.FAILED:
                 failed_storage += job_size
-            elif metadata.status in [LongTextJobStatus.PENDING, LongTextJobStatus.PROCESSING]:
+            elif metadata.status in [
+                LongTextJobStatus.PENDING,
+                LongTextJobStatus.PROCESSING,
+            ]:
                 active_storage += job_size
 
         return {
@@ -1016,14 +1120,16 @@ class LongTextJobManager:
             "avg_job_size_bytes": total_storage // job_count if job_count > 0 else 0,
             "completed_jobs_storage": completed_storage,
             "failed_jobs_storage": failed_storage,
-            "active_jobs_storage": active_storage
+            "active_jobs_storage": active_storage,
         }
 
-    def get_job_file_path(self, job_id: str, file_type: str = 'output') -> Optional[Path]:
+    def get_job_file_path(
+        self, job_id: str, file_type: str = "output"
+    ) -> Optional[Path]:
         """Get path to a specific job file"""
         paths = self._get_job_file_paths(job_id)
 
-        if file_type == 'output':
+        if file_type == "output":
             metadata = self._load_job_metadata(job_id)
             if metadata and metadata.output_path:
                 return self._get_job_directory(job_id) / metadata.output_path
@@ -1048,6 +1154,7 @@ class LongTextJobManager:
 
         chunks = self._load_chunks_data(job_id)
         return self._calculate_progress(metadata, chunks)
+
 
 # Global job manager instance
 _job_manager: Optional[LongTextJobManager] = None
