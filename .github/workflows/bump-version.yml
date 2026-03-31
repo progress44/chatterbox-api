@@ -168,6 +168,12 @@ jobs:
               f.write(f"new_version={new_version}\n")
           PY
 
+      - name: Install black
+        run: pip install black
+
+      - name: Format Python files
+        run: black app/__init__.py app/main.py app/core/version.py
+
       - name: Commit and push
         run: |
           if git diff --quiet; then
