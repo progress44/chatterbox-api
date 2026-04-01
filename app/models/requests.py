@@ -3,7 +3,7 @@ Request models for API validation
 """
 
 from typing import Optional
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 
 class TTSRequest(BaseModel):
@@ -49,13 +49,15 @@ class TTSRequest(BaseModel):
         None, description="Speed vs quality trade-off"
     )
 
-    @validator("input")
+    @field_validator("input")
+    @classmethod
     def validate_input(cls, v):
         if not v or not v.strip():
             raise ValueError("Input text cannot be empty")
         return v.strip()
 
-    @validator("stream_format")
+    @field_validator("stream_format")
+    @classmethod
     def validate_stream_format(cls, v):
         if v is not None:
             allowed_formats = ["audio", "sse"]
@@ -65,7 +67,8 @@ class TTSRequest(BaseModel):
                 )
         return v
 
-    @validator("streaming_strategy")
+    @field_validator("streaming_strategy")
+    @classmethod
     def validate_streaming_strategy(cls, v):
         if v is not None:
             allowed_strategies = ["sentence", "paragraph", "fixed", "word"]
@@ -75,7 +78,8 @@ class TTSRequest(BaseModel):
                 )
         return v
 
-    @validator("streaming_quality")
+    @field_validator("streaming_quality")
+    @classmethod
     def validate_streaming_quality(cls, v):
         if v is not None:
             allowed_qualities = ["fast", "balanced", "high"]
