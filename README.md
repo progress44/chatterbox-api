@@ -61,6 +61,8 @@ cd chatterbox-tts-api
 curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Install dependencies with uv (automatically creates venv)
+# On Linux/Windows, pyproject.toml pins PyTorch to the official cu128 index
+# and overrides chatterbox-tts's older torch/torchaudio pins.
 uv sync
 
 # Copy and customize environment variables
@@ -884,10 +886,11 @@ uv run uvicorn app.main:app --host 0.0.0.0 --port 4123
 ```bash
 # With pip
 pip uninstall torch torchvision torchaudio
-pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124
+pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128
 pip install git+https://github.com/travisvn/chatterbox-multilingual.git@exp
 
-# With uv (handles this automatically)
+# With uv (pyproject.toml pins torch + torchaudio to the cu128 index on Linux/Windows
+# and overrides chatterbox-tts's older transitive pins)
 uv sync
 ```
 

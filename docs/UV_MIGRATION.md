@@ -39,13 +39,14 @@ The combination of FastAPI and uv provides:
 3. **Simplified Configuration**: Removed complex pyproject.toml index configurations
 4. **Complete Dependencies**: Added `resemble-perth` for watermarker functionality
 5. **FastAPI Optimization**: Optimized for FastAPI and async dependencies
+6. **Dependency Overrides**: Use `tool.uv.override-dependencies` when upstream metadata pins an older Torch release
 
 **Fixed Commands**:
 
 ```dockerfile
 # GPU version (Dockerfile.uv.gpu)
 RUN uv venv --python 3.11 && \
-    uv pip install torch==2.6.0 torchvision==0.21.0 torchaudio==2.6.0 --index-url https://download.pytorch.org/whl/cu124 && \
+    uv pip install torch==2.7.0 torchvision==0.22.0 torchaudio==2.7.0 --index-url https://download.pytorch.org/whl/cu128 && \
     uv pip install resemble-perth && \
     uv pip install "chatterbox-tts @ git+https://github.com/resemble-ai/chatterbox.git@v0.1.2" && \
     uv pip install fastapi uvicorn[standard] python-dotenv requests
@@ -136,8 +137,8 @@ pip install uv
 2. **Add dependencies**:
    ```bash
    uv add "chatterbox-tts @ git+https://github.com/resemble-ai/chatterbox.git@v0.1.2"
-   uv add "torch>=2.0.0,<2.7.0"
-   uv add "torchaudio>=2.0.0,<2.7.0"
+   uv add "torch>=2.7.0,<2.8.0"
+   uv add "torchaudio>=2.7.0,<2.8.0"
    uv add "fastapi>=0.104.0"
    uv add "uvicorn[standard]>=0.24.0"
    uv add "pydantic>=2.0.0"
@@ -149,8 +150,9 @@ pip install uv
 
 The provided `pyproject.toml` automatically handles PyTorch variants:
 
-- **Linux**: Uses CUDA-enabled PyTorch
-- **macOS/Windows**: Uses CPU-only PyTorch
+- **Linux/Windows**: Uses CUDA-enabled PyTorch from the official `cu128` index
+- **macOS**: Falls back to the default PyPI wheels
+- **Upstream pin handling**: Overrides `chatterbox-tts`'s older `torch` / `torchaudio` metadata on Linux and Windows
 - **Manual override**: Set environment variables if needed
 
 ### Force CPU version:
@@ -162,7 +164,7 @@ UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cpu uv sync
 ### Force CUDA version:
 
 ```bash
-UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu124 uv sync
+UV_EXTRA_INDEX_URL=https://download.pytorch.org/whl/cu128 uv sync
 ```
 
 ## Step 4: Docker Migration
