@@ -25,7 +25,7 @@ ascii_art = r"""
                                                     
 """
 
-API_VERSION = "2.23.0"
+API_VERSION = "2.24.0"
 
 
 # Application lifespan management
