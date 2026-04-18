@@ -13,6 +13,6 @@ tts:
   exaggeration: "0.5"
   cfgWeight: "0.5"
   temperature: "0.8"
-  useMultilingualModel: "false"
+  useMultilingualModel: "true"
   nvidiaVisibleDevices: all
   nvidiaDriverCapabilities: compute,utility
