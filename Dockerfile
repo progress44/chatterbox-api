@@ -70,8 +70,10 @@ COPY main.py ./
 
 # Voice sample is optional and can be mounted at runtime.
 
-# Create directories for model cache and voice library (separate from source code)
-RUN mkdir -p /cache /voices /data/long_text_jobs
+# Create runtime directories. /tmp/numba must be writable by the non-root
+# runtime user that Olares injects into the container.
+RUN mkdir -p /cache /voices /data/long_text_jobs \
+    && install -d -m 0777 /tmp/numba
 
 # Set default environment variables (prefer CUDA)
 ENV PORT=4123
