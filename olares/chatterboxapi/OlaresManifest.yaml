@@ -1,5 +1,6 @@
 olaresManifest.version: "0.11.0"
 olaresManifest.type: app
+apiVersion: "v2"
 metadata:
   name: chatterboxapi
   description: Private text-to-speech API powered by Chatterbox.
@@ -11,6 +12,22 @@ metadata:
     - AI
     - Utilities
     - Developer Tools
+sharedEntrances:
+  - name: chatterboxapi
+    port: 0
+    host: sharedentrances-api
+    title: Chatterbox API
+    icon: https://avatars.githubusercontent.com/u/21249137?s=200&v=4
+    invisible: true
+    authLevel: internal
+entrances:
+  - name: chatterboxapi
+    port: 8080
+    host: chatterboxapi-proxy
+    title: Chatterbox API
+    icon: https://avatars.githubusercontent.com/u/21249137?s=200&v=4
+    authLevel: internal
+    openMethod: window
 permission:
   appData: true
   appCache: true
@@ -36,9 +53,12 @@ spec:
       - Multipart speech endpoint with optional uploaded reference audio.
 
     Example request
-    - `curl -X POST http://chatterboxapi-svc:4123/v1/audio/speech -H "Content-Type: application/json" -d '{"model":"turbo","input":"Hello from Olares","response_format":"wav"}' --output speech.wav`
+    - Internal shared endpoint: `http://chatterboxapi.shared.olares.com`
+    - User endpoint: `https://chatterboxapi.{OlaresID}.olares.com`
+    - `curl -X POST http://chatterboxapi.shared.olares.com/v1/audio/speech -H "Content-Type: application/json" -d '{"model":"turbo","input":"Hello from Olares","response_format":"wav"}' --output speech.wav`
 
     Notes
+    - This is a shared Olares app. The GPU-backed API service is installed once by the Olares admin, while each user receives a lightweight user-space API entrance.
     - This package targets `amd64` Olares nodes with NVIDIA GPU support.
     - First request may be slow while model artifacts are downloaded.
     - Hugging Face and torch cache paths are persisted under `userspace.appData`.
@@ -52,6 +72,7 @@ spec:
       url: https://github.com/resemble-ai/chatterbox/blob/main/LICENSE
   locale:
     - en-US
+  {{- if and .Values.admin .Values.bfl.username (eq .Values.admin .Values.bfl.username) }}
   requiredMemory: 12Gi
   limitedMemory: 12Gi
   requiredDisk: 5Gi
@@ -60,14 +81,42 @@ spec:
   limitedCpu: 4
   requiredGpu: 12Gi
   limitedGpu: 16Gi
+  {{- else }}
+  requiredMemory: 64Mi
+  limitedMemory: 256Mi
+  requiredDisk: 1Mi
+  limitedDisk: 100Mi
+  requiredCpu: 10m
+  limitedCpu: 100m
+  {{- end }}
   supportArch:
     - amd64
+  subCharts:
+    - name: chatterboxapiserver
+      shared: true
+    - name: chatterboxapi
 options:
   apiTimeout: 0
   dependencies:
     - name: olares
       type: system
-      version: ">=1.12.1-0"
+      version: ">=1.12.3-0"
+  {{- if and .Values.admin .Values.bfl.username (eq .Values.admin .Values.bfl.username) }}
+  {{- else }}
+    - name: chatterboxapi
+      type: application
+      version: ">=2.2.0"
+      mandatory: true
+  {{- end }}
+  appScope:
+  {{- if and .Values.admin .Values.bfl.username (eq .Values.admin .Values.bfl.username) }}
+    clusterScoped: true
+    appRef:
+      - chatterboxapi
+  {{- else }}
+    clusterScoped: false
+  {{- end }}
+{{- if and .Values.admin .Values.bfl.username (eq .Values.admin .Values.bfl.username) }}
 envs:
   - envName: OLARES_USER_HUGGINGFACE_TOKEN
     required: false
@@ -79,11 +128,4 @@ envs:
     applyOnChange: true
     valueFrom:
       envName: OLARES_USER_HUGGINGFACE_SERVICE
-entrances:
-  - name: chatterboxapi
-    port: 4123
-    host: chatterboxapi-svc
-    title: Chatterbox API
-    icon: https://avatars.githubusercontent.com/u/21249137?s=200&v=4
-    authLevel: internal
-    openMethod: window
+{{- end }}

@@ -1,0 +1,6 @@
+apiVersion: v2
+name: chatterboxapiserver
+description: Shared GPU-backed Chatterbox API service
+type: application
+version: 2.2.0
+appVersion: "2.2.0"

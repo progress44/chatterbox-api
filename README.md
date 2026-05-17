@@ -50,6 +50,13 @@ Olares chart and manifest are under:
 
 - `olares/chatterboxapi`
 
+The Olares package is modeled as a shared app:
+
+- Admin install: deploys the shared GPU-backed Chatterbox API service.
+- User install: deploys a lightweight user-space API proxy.
+- Shared internal endpoint: `http://chatterboxapi.shared.olares.com`
+- User endpoint: `https://chatterboxapi.{OlaresID}.olares.com`
+
 Package manually:
 
 ```bash
