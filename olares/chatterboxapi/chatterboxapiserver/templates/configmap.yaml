@@ -1,3 +1,4 @@
+{{- if and .Values.admin .Values.bfl.username (eq .Values.admin .Values.bfl.username) }}
 ---
 apiVersion: v1
 kind: ConfigMap
@@ -26,3 +27,4 @@ data:
   TORCH_HOME: /data/torch
   NVIDIA_VISIBLE_DEVICES: {{ .Values.tts.nvidiaVisibleDevices | quote }}
   NVIDIA_DRIVER_CAPABILITIES: {{ .Values.tts.nvidiaDriverCapabilities | quote }}
+{{- end }}
