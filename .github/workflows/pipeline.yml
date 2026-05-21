@@ -1,0 +1,50 @@
+name: Pipeline
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  bump-version:
+    if: github.actor != 'github-actions[bot]'
+    uses: ./.github/workflows/bump-version.yml
+    secrets: inherit
+    permissions:
+      contents: write
+
+  tests:
+    needs: bump-version
+    uses: ./.github/workflows/tests.yml
+    secrets: inherit
+
+  build-blackwell:
+    needs: tests
+    uses: ./.github/workflows/docker-image.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+  build-flavours:
+    needs: tests
+    uses: ./.github/workflows/docker-image-flavours.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+  build-frontend:
+    needs: tests
+    uses: ./.github/workflows/docker-image-frontend.yml
+    secrets: inherit
+    permissions:
+      contents: read
+      packages: write
+
+  package-chart:
+    needs: [build-blackwell, build-flavours, build-frontend]
+    uses: ./.github/workflows/package-chart.yml
+    secrets: inherit
+    permissions:
+      contents: write

@@ -21,7 +21,7 @@ from .responses import (
     VoiceLibraryResponse,
     SupportedLanguageItem,
     SupportedLanguagesResponse,
-    DefaultVoiceResponse
+    DefaultVoiceResponse,
 )
 from .long_text import (
     LongTextJobStatus,
@@ -34,7 +34,7 @@ from .long_text import (
     LongTextJobList,
     LongTextJobCreateResponse,
     LongTextJobAction,
-    LongTextSSEEvent
+    LongTextSSEEvent,
 )
 
 __all__ = [
@@ -67,5 +67,5 @@ __all__ = [
     "LongTextJobList",
     "LongTextJobCreateResponse",
     "LongTextJobAction",
-    "LongTextSSEEvent"
-] 
+    "LongTextSSEEvent",
+]

@@ -1,17 +1,16 @@
 name: Build Docker Image
 
 on:
+  workflow_call:
   pull_request:
   push:
-    branches:
-      - master
     tags:
       - "v*"
   workflow_dispatch:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ${{ github.repository_owner }}/rpi-system-chatterbox-api
+  IMAGE_NAME: ${{ github.repository_owner }}/chatterbox-api
 
 jobs:
   docker:
@@ -53,7 +52,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
-          file: Dockerfile
+          file: docker/Dockerfile.blackwell
           platforms: linux/amd64
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}

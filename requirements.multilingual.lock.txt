@@ -1,0 +1,2 @@
+# Multilingual model source must be pinned to an immutable commit SHA.
+chatterbox-tts @ git+https://github.com/travisvn/chatterbox-multilingual.git@__CHATTERBOX_MULTILINGUAL_SHA__

@@ -1,9 +1,11 @@
 name: Bump Version
 
 on:
-  push:
-    branches:
-      - master
+  workflow_call:
+    inputs:
+      bump:
+        type: string
+        default: minor
   workflow_dispatch:
     inputs:
       bump:
@@ -15,9 +17,6 @@ on:
           - patch
           - minor
           - major
-
-permissions:
-  contents: write
 
 jobs:
   bump-version:
@@ -168,6 +167,12 @@ jobs:
               f.write(f"old_version={old_app_version}\n")
               f.write(f"new_version={new_version}\n")
           PY
+
+      - name: Install black
+        run: pip install black
+
+      - name: Format Python files
+        run: black app/__init__.py app/main.py app/core/version.py
 
       - name: Commit and push
         run: |
